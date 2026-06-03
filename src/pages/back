@@ -1,0 +1,429 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ticketService } from '../services/ticket.service';
+ 
+import { Button } from '../components/common/Button';
+import { Input } from '../components/common/Input';
+import { Footer } from '../components/common/Footer';
+
+export const PublicCreateTicket: React.FC = () => {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'report' | 'track' | null>(null);
+  const [trackId, setTrackId] = useState('');
+  const [form, setForm] = useState({
+    reporterName: '',
+    reporterPhone: '',
+    reporterEmail: '',
+    region: '',
+    district: '',
+    ward: '',
+    street: '',
+    title: '',
+    description: '',
+    
+  });
+  const [files, setFiles] = useState<FileList | null>(null);
+  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const validateStep = (step: number): boolean => {
+    if (step === 1) {
+      return form.reporterName.trim() !== '' && form.reporterPhone.trim() !== '';
+    }
+    if (step === 2) {
+      return form.title.trim() !== '' && form.description.trim() !== '';
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (validateStep(currentStep)) {
+      setError('');
+      setCurrentStep(currentStep + 1);
+    } else {
+      setError('Please fill in all required fields in this step.');
+    }
+  };
+
+  const handlePrevStep = () => {
+    setError('');
+    setCurrentStep(currentStep - 1);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
+      if (files && files.length) {
+        for (let i = 0; i < files.length; i++) fd.append('attachments', files[i]);
+      }
+      const res = await ticketService.createPublic(fd);
+      navigate('/');
+    } catch (err) {
+      setError('Failed to submit ticket. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans relative">
+      
+      <div className="pb-20">
+      
+      {/* Top Hero Section */}
+      <div className="bg-brand-primary h-[450px] w-full absolute top-0 left-0 z-0 overflow-hidden">
+        {/* Subtle geometric pattern */}
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
+        <div className="absolute top-20 -left-20 w-72 h-72 bg-white opacity-5 rounded-full blur-2xl"></div>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 pt-8">
+        
+        {/* Logos inline within hero */}
+        <div className="flex justify-between items-center mb-10 w-full">
+          <div className="flex-shrink-0">
+            <img 
+              src="/Coat of Arms - Taifa logo iliiyopitishwa(4).png" 
+              alt="Coat of Arms" 
+              className="h-16 md:h-20 w-auto object-contain"
+            />
+          </div>
+          <div className="flex-shrink-0">
+            <img 
+              src="/POLICE LOGO - APP - PLAIN 2.png" 
+              alt="Police Logo" 
+              className="h-16 md:h-20 w-auto object-contain"
+            />
+          </div>
+        </div>
+
+        {/* Header Header */}
+        <div className="text-center max-w-2xl mx-auto mb-12 animate-fade-in-up">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
+            Ticket Support System
+          </h1>
+          <p className="text-white/80 text-lg md:text-xl font-medium">
+            Welcome. Please fill out the form below to create a new support ticket. Our team is ready to assist you.
+          </p>
+
+          <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+            <button 
+              className={`px-8 py-3.5 rounded-xl font-bold transition-all ${activeTab === 'report' ? 'bg-white text-brand-primary shadow-lg' : 'bg-white/10 text-white hover:bg-white/20'}`} 
+              onClick={() => setActiveTab('report')}
+            >
+              Create New Ticket
+            </button>
+            <button 
+              className={`px-8 py-3.5 rounded-xl font-bold transition-all ${activeTab === 'track' ? 'bg-white text-brand-primary shadow-lg' : 'bg-white/10 text-white hover:bg-white/20'}`} 
+              onClick={() => setActiveTab('track')}
+            >
+              Track Ticket
+            </button>
+          </div>
+        </div>
+
+        {/* Landing Page Main Content */}
+        <div className="pt-24 mt-24 mb-24 space-y-24 text-gray-800 relative z-10">
+          
+
+
+          {/* Our Services */}
+          <section>
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <h2 className="text-3xl font-extrabold text-gray-900 mb-4">Our Services</h2>
+              <div className="w-20 h-1.5 bg-brand-primary mx-auto rounded-full"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[
+                "Submit support requests",
+                "Report incidents and service issues",
+                "Track the status of submitted tickets",
+                "Receive updates and feedback from support teams",
+                "Submit suggestions and recommendations",
+                "Upload supporting documents and attachments",
+                "Access a secure and user-friendly support platform"
+              ].map((service, idx) => (
+                <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow">
+                  <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  </div>
+                  <p className="text-gray-700 font-semibold leading-snug">{service}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* How It Works */}
+          <section className="relative">
+            <div className="text-center max-w-2xl mx-auto mb-16">
+              <h2 className="text-3xl font-extrabold text-gray-900 mb-4">How It Works</h2>
+              <div className="w-20 h-1.5 bg-brand-primary mx-auto rounded-full"></div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-8 md:gap-4 relative z-10">
+              {[
+                { title: "Submit a Request", desc: "Provide the required information and describe your issue, concern, or request in detail." },
+                { title: "Ticket Creation", desc: "A unique ticket number will be automatically generated for your request." },
+                { title: "Review & Assignment", desc: "Your ticket will be reviewed and assigned to the appropriate support team." },
+                { title: "Investigation & Resolution", desc: "The responsible team will investigate the issue and take the necessary actions to resolve it." },
+                { title: "Feedback & Closure", desc: "You will receive updates throughout the process and be notified once the ticket has been resolved." }
+              ].map((step, idx) => (
+                <div key={idx} className="relative flex flex-col items-center text-center group">
+                  <div className="w-20 h-20 rounded-full bg-brand-primary text-white flex items-center justify-center text-2xl font-black mb-6 shadow-xl shadow-brand-primary/20 ring-8 ring-gray-50 group-hover:scale-110 transition-transform duration-300">
+                    {idx + 1}
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 group-hover:text-brand-primary transition-colors">{step.title}</h3>
+                  <p className="text-sm text-gray-600 font-medium leading-relaxed px-2">{step.desc}</p>
+                  
+                  {idx < 4 && (
+                    <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-[3px] bg-gradient-to-r from-brand-primary/30 to-brand-primary/5 -z-10"></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+
+
+
+
+        </div>
+        
+
+
+        {/* Main Form Modal */}
+        {activeTab && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <div className="absolute inset-0 bg-brand-dark/40 backdrop-blur-sm" onClick={() => setActiveTab(null)}></div>
+            <div className="relative w-full max-w-4xl bg-white rounded-[24px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-fade-in-up">
+              
+              <div className="flex justify-between items-center p-6 border-b border-gray-100 shrink-0 bg-white">
+                <h2 className="text-xl font-bold text-brand-primary">
+                  {activeTab === 'report' ? 'Report Information' : 'Track Your Ticket'}
+                </h2>
+                <button type="button" onClick={() => setActiveTab(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+
+              <div className="p-8 md:p-12 overflow-y-auto custom-scrollbar">
+                {activeTab === 'report' ? (
+                  <>
+            {/* Progress Indicator */}
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-sm font-bold text-gray-600">Step {currentStep} of 3</span>
+                <span className="text-sm font-bold text-brand-primary">{Math.round((currentStep / 3) * 100)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-brand-primary h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${(currentStep / 3) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-700 text-sm font-bold rounded-xl flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-12">
+              
+              {/* Step 1: Reporter Information */}
+              {currentStep === 1 && (
+                <div>
+                  <div className="flex items-center mb-6">
+                    <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg mr-4">1</div>
+                    <h2 className="text-2xl font-bold text-gray-900">Reporter Information</h2>
+                  </div>
+                  
+                  <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Input label="Full Name" variant="underline" value={form.reporterName} onChange={(e) => set('reporterName', e.target.value)} required />
+                      <Input label="Phone Number" variant="underline" value={form.reporterPhone} onChange={(e) => set('reporterPhone', e.target.value)} required />
+                    </div>
+                    
+                    <Input label="Email Address (Optional)" variant="underline" type="email" value={form.reporterEmail} onChange={(e) => set('reporterEmail', e.target.value)} />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Input label="Region" variant="underline" value={form.region} onChange={(e) => set('region', e.target.value)} />
+                      <Input label="District" variant="underline" value={form.district} onChange={(e) => set('district', e.target.value)} />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Input label="Ward" variant="underline" value={form.ward} onChange={(e) => set('ward', e.target.value)} />
+                      <Input label="Street / Village" variant="underline" value={form.street} onChange={(e) => set('street', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Issue Details */}
+              {currentStep === 2 && (
+                <div>
+                  <div className="flex items-center mb-6">
+                    <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg mr-4">2</div>
+                    <h2 className="text-2xl font-bold text-gray-900">Issue Details</h2>
+                  </div>
+                  
+                  <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-6">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Issue Title <span className="text-red-500">*</span></label>
+                      <input className="input-underline" value={form.title} onChange={(e) => set('title', e.target.value)} required placeholder="Brief title of the issue" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Detailed Description <span className="text-red-500">*</span></label>
+                      <textarea className="input-underline min-h-[150px] resize-y" value={form.description} onChange={(e) => set('description', e.target.value)} required placeholder="Provide as much detail as possible to help us resolve the issue quickly..." />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Attachments */}
+              {currentStep === 3 && (
+                <div>
+                  <div className="flex items-center mb-6">
+                    <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg mr-4">3</div>
+                    <h2 className="text-2xl font-bold text-gray-900">Attachments & Review</h2>
+                  </div>
+                  
+                  <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-6">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Attachments (Images, PDF, Docs)</label>
+                      <div className="mt-1 flex justify-center px-6 pt-6 pb-8 border-2 border-dashed border-gray-300 rounded-xl hover:border-brand-primary bg-white transition-colors group">
+                        <div className="space-y-2 text-center">
+                          <div className="mx-auto h-16 w-16 bg-brand-primary/10 rounded-full flex items-center justify-center group-hover:bg-brand-primary/20 transition-colors">
+                            <svg className="h-8 w-8 text-brand-primary" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                          <div className="flex text-sm text-gray-600 justify-center items-center gap-1">
+                            <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-bold text-brand-primary hover:text-brand-light focus-within:outline-none">
+                              <span>Browse files</span>
+                              <input id="file-upload" name="file-upload" type="file" multiple className="sr-only" onChange={(e) => setFiles(e.target.files)} />
+                            </label>
+                            <p>or drag and drop here</p>
+                          </div>
+                          <p className="text-xs text-gray-500 font-medium">Max size: 10MB per file</p>
+                          
+                          {files && files.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-800">
+                                <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                {files.length} file(s) ready
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Summary Review */}
+                    <div className="mt-8 pt-6 border-t border-gray-200">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4">Summary</h3>
+                      <div className="bg-white p-4 rounded-lg space-y-2 text-sm">
+                        <p><span className="font-semibold text-gray-700">Name:</span> {form.reporterName}</p>
+                        <p><span className="font-semibold text-gray-700">Phone:</span> {form.reporterPhone}</p>
+                        {form.reporterEmail && <p><span className="font-semibold text-gray-700">Email:</span> {form.reporterEmail}</p>}
+                        <p><span className="font-semibold text-gray-700">Location:</span> {form.region} {form.district && ', ' + form.district} {form.ward && ', ' + form.ward}</p>
+                        <p><span className="font-semibold text-gray-700">Issue:</span> {form.title}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer Buttons */}
+              <div className="pt-8 border-t border-gray-200 flex flex-col-reverse md:flex-row justify-between items-center gap-4">
+                <p className="text-sm text-gray-500 font-medium w-full text-center md:text-left">
+                  Required fields are marked with <span className="text-red-500">*</span>
+                </p>
+                <div className="flex flex-col-reverse md:flex-row w-full md:w-auto gap-4">
+                  {currentStep > 1 && (
+                    <button type="button" onClick={handlePrevStep} className="px-8 py-3.5 bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors rounded-xl font-bold text-base w-full md:w-auto">
+                      Back
+                    </button>
+                  )}
+                  
+                  {currentStep === 1 && (
+                    <button type="button" onClick={handleNextStep} className="px-8 py-3.5 bg-brand-primary text-white hover:bg-brand-light transition-all rounded-xl font-bold text-base shadow-[0_8px_20px_rgba(28,35,109,0.25)] hover:shadow-[0_12px_25px_rgba(28,35,109,0.35)] hover:-translate-y-0.5 w-full md:w-auto">
+                      Next
+                    </button>
+                  )}
+
+                  {currentStep === 2 && (
+                    <button type="button" onClick={handleNextStep} className="px-8 py-3.5 bg-brand-primary text-white hover:bg-brand-light transition-all rounded-xl font-bold text-base shadow-[0_8px_20px_rgba(28,35,109,0.25)] hover:shadow-[0_12px_25px_rgba(28,35,109,0.35)] hover:-translate-y-0.5 w-full md:w-auto">
+                      Continue
+                    </button>
+                  )}
+
+                  {currentStep === 3 && (
+                    <>
+                      <button type="button" onClick={() => navigate(-1)} className="px-8 py-3.5 bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors rounded-xl font-bold text-base w-full md:w-auto">
+                        Cancel
+                      </button>
+                      <button type="submit" disabled={loading} className="px-8 py-3.5 bg-brand-primary text-white hover:bg-brand-light transition-all rounded-xl font-bold text-base shadow-[0_8px_20px_rgba(28,35,109,0.25)] hover:shadow-[0_12px_25px_rgba(28,35,109,0.35)] hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0 w-full md:w-auto">
+                        {loading ? 'Submitting...' : 'Submit Ticket'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+            </form>
+              </>
+            ) : (
+              <div className="space-y-8 animate-fade-in py-4">
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-extrabold text-gray-900 mb-4">Track Your Ticket</h2>
+                  <p className="text-gray-600 text-lg">Enter your ticket tracking ID to see the latest updates on your issue.</p>
+                </div>
+                
+                <div className="max-w-md mx-auto">
+                  <div className="space-y-6">
+                    <Input 
+                      label="Ticket Tracking ID" 
+                      variant="underline"
+                      value={trackId} 
+                      onChange={(e) => setTrackId(e.target.value)} 
+                      placeholder="e.g. TKT-12345678" 
+                    />
+                    <button 
+                      className="w-full px-8 py-4 bg-brand-primary text-white hover:bg-brand-light transition-all rounded-xl font-bold text-lg shadow-[0_8px_20px_rgba(28,35,109,0.25)] hover:shadow-[0_12px_25px_rgba(28,35,109,0.35)] hover:-translate-y-0.5"
+                      onClick={() => {
+                        alert('Tracking feature coming soon!');
+                      }}
+                    >
+                      Track Ticket
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+
+
+      </div>
+      </div>
+
+      {/* Footer Component */}
+      <Footer />
+    </div>
+  );
+};
+
