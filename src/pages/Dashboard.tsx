@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { KPICard } from "../components/dashboard/KPICard";
 import { StatusBadge, PriorityBadge } from "../components/common/Badge";
+import TicketViewModal from "../components/tickets/TicketViewModal";
 
 import { getTickets } from "../api/ticketApi";
 import { DashboardStats, Ticket } from "../types";
 import { timeAgo } from "../utils/helpers";
 
 /**
- * Backend-safe status handling (NO TYPE ERRORS)
+ * Safe status normalizer (prevents TS errors)
  */
-const normalizeStatus = (status: any) => String(status || "").toUpperCase();
+const normalizeStatus = (status: any): string =>
+  String(status || "").toUpperCase();
 
 export const Dashboard: React.FC = () => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -19,6 +20,10 @@ export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // MODAL STATE
+  const [showView, setShowView] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   // =========================
   // LOAD DASHBOARD
@@ -33,11 +38,10 @@ export const Dashboard: React.FC = () => {
         ? res.data
         : res.data?.results || [];
 
-      // latest 5
       setRecentTickets(tickets.slice(0, 5));
 
       // =========================
-      // SAFE BACKEND FILTERING
+      // SAFE STATS CALCULATION
       // =========================
       const openTickets = tickets.filter(
         (t) => normalizeStatus(t.status) === "OPEN"
@@ -51,7 +55,7 @@ export const Dashboard: React.FC = () => {
         (t) => normalizeStatus(t.status) === "ESCALATED"
       ).length;
 
-      const dashboardStats: DashboardStats = {
+      setStats({
         totalTickets: tickets.length,
         openTickets,
         resolvedToday,
@@ -59,9 +63,7 @@ export const Dashboard: React.FC = () => {
         avgCsat: "4.5",
         qaPassRate: "85%",
         slaBreaches: 2,
-      };
-
-      setStats(dashboardStats);
+      });
     } catch (err) {
       console.error("Dashboard error:", err);
     } finally {
@@ -74,7 +76,7 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   // =========================
-  // LOADING UI
+  // LOADING
   // =========================
   if (loading) {
     return (
@@ -99,12 +101,6 @@ export const Dashboard: React.FC = () => {
             </span>
           </p>
         </div>
-
-        <Link to="/tickets/create">
-          <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-            + New Ticket
-          </button>
-        </Link>
       </div>
 
       {/* KPI CARDS */}
@@ -129,13 +125,6 @@ export const Dashboard: React.FC = () => {
           <h2 className="font-semibold text-blue-600">
             Recent Tickets
           </h2>
-
-          <Link
-            to="/tickets"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            View all →
-          </Link>
         </div>
 
         {recentTickets.length === 0 ? (
@@ -148,13 +137,20 @@ export const Dashboard: React.FC = () => {
 
               <thead className="border-b bg-gray-100">
                 <tr>
-                  {["ID", "Title", "Customer", "Assigned To", "Status", "Priority", "Created"].map(
-                    (h) => (
-                      <th key={h} className="text-left p-3 text-xs">
-                        {h}
-                      </th>
-                    )
-                  )}
+                  {[
+                    "ID",
+                    "Title",
+                    "Customer",
+                    "Assigned By",
+                    "Assigned To",
+                    "Status",
+                    "Priority",
+                    "Created",
+                  ].map((h) => (
+                    <th key={h} className="text-left p-3 text-xs">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
@@ -167,11 +163,16 @@ export const Dashboard: React.FC = () => {
                       #{String(t.id).padStart(4, "0")}
                     </td>
 
-                    {/* TITLE */}
-                    <td className="p-3 text-blue-600">
-                      <Link to={`/tickets/${t.id}`}>
+                    {/* TITLE → OPEN MODAL */}
+                    <td className="p-3 text-blue-600 cursor-pointer">
+                      <span
+                        onClick={() => {
+                          setSelectedTicket(t);
+                          setShowView(true);
+                        }}
+                      >
                         {t.title}
-                      </Link>
+                      </span>
                     </td>
 
                     {/* CUSTOMER */}
@@ -179,7 +180,12 @@ export const Dashboard: React.FC = () => {
                       {t.customer_name ?? "—"}
                     </td>
 
-                    {/* ASSIGNED TO (NEW FIX) */}
+                    {/* ASSIGNED BY (IMPORTANT FIX) */}
+                    <td className="p-3 text-gray-600">
+                      {t.assigned_by_name ?? "—"}
+                    </td>
+
+                    {/* ASSIGNED TO */}
                     <td className="p-3 text-gray-600">
                       {t.assigned_to_name ?? "Unassigned"}
                     </td>
@@ -208,6 +214,14 @@ export const Dashboard: React.FC = () => {
         )}
       </div>
 
+      {/* =========================
+          TICKET VIEW MODAL
+      ========================= */}
+      <TicketViewModal
+        show={showView}
+        ticket={selectedTicket}
+        onHide={() => setShowView(false)}
+      />
     </div>
   );
 };
