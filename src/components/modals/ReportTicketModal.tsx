@@ -1,10 +1,11 @@
-// C:\Users\Hp\Desktop\1frontend\src\components\modals\ReportTicketModal.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ticketService } from '../../services/ticket.service';
-import { Input } from '../common/Input';
+
+import { createTicket } from '../../api/ticketApi';
+
 import { ProgressIndicator } from '../common/ProgressIndicator';
 import { ErrorMessage } from '../common/ErrorMessage';
+
 import { ReporterInfoStep } from '../forms/ReporterInfoStep';
 import { IssueDetailsStep } from '../forms/IssueDetailsStep';
 import { AttachmentsStep } from '../forms/AttachmentsStep';
@@ -15,87 +16,141 @@ interface ReportTicketModalProps {
 }
 
 interface FormData {
-  reporterName: string;
-  reporterPhone: string;
-  reporterEmail: string;
+  // ✅ UPDATED to match backend column names
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+
+  // UI ONLY (cascading selects)
   region: string;
   district: string;
   ward: string;
+  
+  // Backend field
   street: string;
+
+  // Ticket details
   title: string;
   description: string;
 }
 
 export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose }) => {
   const navigate = useNavigate();
+
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
   const [form, setForm] = useState<FormData>({
-    reporterName: '',
-    reporterPhone: '',
-    reporterEmail: '',
+    // ✅ UPDATED field names
+    customer_name: '',
+    customer_phone: '',
+    customer_email: '',
+
     region: '',
     district: '',
     ward: '',
     street: '',
+
     title: '',
     description: '',
   });
+
   const [files, setFiles] = useState<FileList | null>(null);
 
+  // ======================
+  // UPDATE FORM
+  // ======================
   const updateFormField = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
+  // ======================
+  // VALIDATION
+  // ======================
   const validateStep = (step: number): boolean => {
     if (step === 1) {
-      return form.reporterName.trim() !== '' && form.reporterPhone.trim() !== '';
+      // ✅ UPDATED field names
+      return Boolean(
+        form.customer_name.trim() &&
+        form.customer_phone.trim() &&
+        form.street.trim()
+      );
     }
+
     if (step === 2) {
-      return form.title.trim() !== '' && form.description.trim() !== '';
+      return Boolean(
+        form.title.trim() &&
+        form.description.trim()
+      );
     }
+
     return true;
   };
 
+  // ======================
+  // NEXT STEP
+  // ======================
   const handleNextStep = () => {
     if (validateStep(currentStep)) {
       setError('');
-      setCurrentStep(currentStep + 1);
+      setCurrentStep((prev) => prev + 1);
     } else {
       setError('Please fill in all required fields in this step.');
     }
   };
 
+  // ======================
+  // PREVIOUS STEP
+  // ======================
   const handlePrevStep = () => {
     setError('');
-    setCurrentStep(currentStep - 1);
+    setCurrentStep((prev) => prev - 1);
   };
 
+  // ======================
+  // SUBMIT
+  // ======================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => {
-        if (v) fd.append(k, v);
+
+      // Only send backend fields (exclude UI-only fields like region, district, ward)
+      const backendFields = ['customer_name', 'customer_phone', 'customer_email', 'street', 'title', 'description'];
+      
+      backendFields.forEach((key) => {
+        const value = form[key as keyof FormData];
+        if (value) fd.append(key, value);
       });
-      if (files && files.length) {
+
+      if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {
           fd.append('attachments', files[i]);
         }
       }
-      await ticketService.createPublic(fd);
+
+      await createTicket(fd);
+
       onClose();
       navigate('/');
     } catch (err) {
       setError('Failed to submit ticket. Please try again.');
+      console.error('Submit error:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  // ======================
+  // CANCEL
+  // ======================
   const handleCancel = () => {
     onClose();
     navigate(-1);
@@ -103,69 +158,64 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-brand-dark/40 backdrop-blur-sm" 
+
+      {/* BACKDROP */}
+      <div
+        className="absolute inset-0 bg-brand-dark/40 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
-      
-      {/* Modal Container */}
-      <div className="relative w-full max-w-4xl bg-white rounded-[24px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-fade-in-up">
-        
-        {/* Modal Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 shrink-0 bg-white">
+      />
+
+      {/* MODAL */}
+      <div className="relative w-full max-w-4xl bg-white rounded-[24px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+
+        {/* HEADER */}
+        <div className="flex justify-between items-center p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-brand-primary">
-            Report Information
+            Report Ticket
           </h2>
-          <button 
-            type="button" 
-            onClick={onClose} 
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
+            ✕
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-8 md:p-12 overflow-y-auto custom-scrollbar">
+        {/* BODY */}
+        <div className="p-8 overflow-y-auto">
+
           <ProgressIndicator currentStep={currentStep} totalSteps={3} />
-          
-          <ErrorMessage 
-            message={error} 
-            onClose={() => setError('')}
-          />
+
+          <ErrorMessage message={error} onClose={() => setError('')} />
 
           <form onSubmit={handleSubmit} className="space-y-12">
-            {/* Step 1: Reporter Information */}
+
             {currentStep === 1 && (
-              <ReporterInfoStep 
+              <ReporterInfoStep
                 form={form}
                 onChange={updateFormField}
               />
             )}
 
-            {/* Step 2: Issue Details */}
             {currentStep === 2 && (
-              <IssueDetailsStep 
+              <IssueDetailsStep
                 title={form.title}
                 description={form.description}
                 onChange={updateFormField}
               />
             )}
 
-            {/* Step 3: Attachments & Review */}
             {currentStep === 3 && (
-              <AttachmentsStep 
+              <AttachmentsStep
                 files={files}
                 onFilesChange={setFiles}
                 form={form}
               />
             )}
 
-            {/* Navigation Buttons */}
-            <FormNavigation 
+            <FormNavigation
               currentStep={currentStep}
               totalSteps={3}
               loading={loading}
@@ -174,6 +224,7 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
               onCancel={handleCancel}
               onSubmit={handleSubmit}
             />
+
           </form>
         </div>
       </div>

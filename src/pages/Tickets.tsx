@@ -278,11 +278,11 @@ export const Tickets: React.FC = () => {
                       </td>
 
                       <td className="p-3">
-                        {t.agent?.fullName ?? "Unassigned"}
+                        {t.agent?.username ?? "Unassigned"}
                       </td>
 
                       <td className="p-3">
-                        {timeAgo(t.createdAt)}
+                        {timeAgo(t.created_at)}
                       </td>
 
                       <td className="p-3 flex gap-2">
