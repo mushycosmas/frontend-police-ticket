@@ -41,6 +41,7 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [createdTicketNumber, setCreatedTicketNumber] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>({
     customer_name: '',
     customer_phone: '',
@@ -131,12 +132,18 @@ const handleSubmit = async (e: React.FormEvent) => {
       });
     }
 
-    await createTicket(fd);
+    // ✅ IMPORTANT: capture response
+    const res = await createTicket(fd);
+
+    const ticket = res?.data; // Django response
+
+    // ✅ STORE TICKET NUMBER
+    setCreatedTicketNumber(ticket?.ticket_number);
 
     // ✅ SHOW SUCCESS MODAL
     setSuccess(true);
 
-    // optional reset
+    // reset form
     setForm({
       customer_name: "",
       customer_phone: "",
@@ -159,7 +166,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     setLoading(false);
   }
 };
-
   // ======================
   // CANCEL
   // ======================
@@ -241,33 +247,32 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
       </div>
 
-      {success && (
-  <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50">
-    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md text-center">
+            {success && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full text-center">
 
-      <div className="text-green-500 text-5xl mb-3">✔</div>
+                  <h2 className="text-xl font-bold text-green-600">
+                    Ticket Created Successfully 🎉
+                  </h2>
 
-      <h2 className="text-xl font-bold text-gray-800">
-        Ticket Submitted Successfully
-      </h2>
+                  <p className="mt-3 text-gray-600">
+                    Your ticket number is:
+                  </p>
 
-      <p className="text-gray-500 mt-2">
-        Your ticket has been created and sent to support team.
-      </p>
+                  <div className="mt-2 text-2xl font-bold text-blue-600">
+                    {createdTicketNumber}
+                  </div>
 
-      <button
-        onClick={() => {
-          setSuccess(false);
-          onClose();
-          // navigate("/") optional
-        }}
-        className="mt-5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-      >
-        Done
-      </button>
-    </div>
-  </div>
-)}
+                  <button
+                    onClick={() => setSuccess(false)}
+                    className="mt-5 px-4 py-2 bg-blue-600 text-white rounded"
+                  >
+                    Close
+                  </button>
+
+                </div>
+              </div>
+            )}      
 
     </div>
   );
