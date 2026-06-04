@@ -40,7 +40,7 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+  const [success, setSuccess] = useState(false);
   const [form, setForm] = useState<FormData>({
     customer_name: '',
     customer_phone: '',
@@ -110,7 +110,7 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   // ======================
   // SUBMIT
   // ======================
- const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setError("");
   setLoading(true);
@@ -118,9 +118,6 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   try {
     const fd = new FormData();
 
-    // ======================
-    // ONLY BACKEND FIELDS
-    // ======================
     fd.append("customer_name", form.customer_name);
     fd.append("customer_phone", form.customer_phone);
     fd.append("customer_email", form.customer_email);
@@ -128,34 +125,35 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
     fd.append("title", form.title);
     fd.append("description", form.description);
 
-    // ======================
-    // DEBUG LOGS
-    // ======================
-    console.log("===== FORM STATE =====", form);
-
-    console.log("===== FORMDATA =====");
-    for (const [key, value] of fd.entries()) {
-      console.log(key, value);
-    }
-
-    // ======================
-    // FILES (IMPORTANT FIX)
-    // ======================
     if (files && files.length > 0) {
       Array.from(files).forEach((file) => {
-        fd.append("attachments", file); // ✅ MUST match backend
+        fd.append("attachments", file);
       });
     }
 
-    // ======================
-    // API CALL
-    // ======================
     await createTicket(fd);
 
-    onClose();
-    // navigate("/");
+    // ✅ SHOW SUCCESS MODAL
+    setSuccess(true);
+
+    // optional reset
+    setForm({
+      customer_name: "",
+      customer_phone: "",
+      customer_email: "",
+      region: "",
+      district: "",
+      ward: "",
+      street_id: "",
+      title: "",
+      description: "",
+    });
+
+    setFiles(null);
+    setCurrentStep(1);
+
   } catch (err) {
-    console.error("Submit error:", err);
+    console.error(err);
     setError("Failed to submit ticket. Please try again.");
   } finally {
     setLoading(false);
@@ -242,6 +240,35 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
           </form>
         </div>
       </div>
+
+      {success && (
+  <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50">
+    <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md text-center">
+
+      <div className="text-green-500 text-5xl mb-3">✔</div>
+
+      <h2 className="text-xl font-bold text-gray-800">
+        Ticket Submitted Successfully
+      </h2>
+
+      <p className="text-gray-500 mt-2">
+        Your ticket has been created and sent to support team.
+      </p>
+
+      <button
+        onClick={() => {
+          setSuccess(false);
+          onClose();
+          // navigate("/") optional
+        }}
+        className="mt-5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };
