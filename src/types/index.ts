@@ -55,42 +55,22 @@ export interface Customer {
 }
 export interface Ticket {
   id: number;
-  ticketNumber?: string;
-  customerId: number;
-  agentId?: number;
-  teamLeadId?: number;
   title: string;
-  description: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  channel: TicketChannel;
-  reporterName?: string;
-  reporterPhone?: string;
-  reporterEmail?: string;
-  region?: string;
-  district?: string;
-  ward?: string;
-  street?: string;
-  gpsCoordinates?: string;
-  serviceCategory?: ServiceCategory;
-  serviceRequested?: string;
-  urgency?: UrgencyLevel;
-  assignedDepartment?: string;
-  assignedOfficer?: User;
-  resolutionNotes?: string;
-  resolutionDate?: string;
-  preferredContact?: PreferredContactMethod;
-  slaBreached: boolean;
-  createdAt: string;
-  updatedAt: string;
-  closedAt?: string;
-  customer?: Customer;
-  agent?: User;
-  teamLead?: User;
-  escalations?: Escalation[];
-  qaReview?: QAReview;
-  csatFeedback?: CsatFeedback;
-  auditLogs?: AuditLog[];
+
+  // backend fields (IMPORTANT)
+  customer_name?: string;
+  customer_contact?: string;
+
+  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "ESCALATED" | "CLOSED";
+  priority: "P1_CRITICAL" | "P2_HIGH" | "P3_MEDIUM" | "P4_LOW";
+
+  team_id?: number;
+  team_name?: string;
+
+  assigned_to_id?: number;
+  assigned_to_name?: string;
+  assigned_by_name?: string;
+  created_at: string;
 }
 export interface Escalation {
   id: number;

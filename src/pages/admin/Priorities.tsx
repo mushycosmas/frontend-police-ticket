@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-
+import React, { useEffect, useState, useMemo } from "react";
 import {
   getPriorities,
   createPriority,
@@ -17,10 +16,15 @@ type Priority = {
 
 const Priorities: React.FC = () => {
   const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const [show, setShow] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentId, setCurrentId] = useState<number | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const perPage = 5;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -30,17 +34,37 @@ const Priorities: React.FC = () => {
   });
 
   // =====================
-  // LOAD DATA
+  // LOAD
   // =====================
-  const fetchPriorities = () => {
-    getPriorities()
-      .then((res) => setPriorities(res.data))
-      .catch(console.error);
+  const fetchPriorities = async () => {
+    setLoading(true);
+    const res = await getPriorities();
+    setPriorities(res.data);
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchPriorities();
   }, []);
+
+  // =====================
+  // SEARCH FILTER
+  // =====================
+  const filtered = useMemo(() => {
+    return priorities.filter((p) =>
+      p.name.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [priorities, search]);
+
+  // =====================
+  // PAGINATION
+  // =====================
+  const paginated = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return filtered.slice(start, start + perPage);
+  }, [filtered, page]);
+
+  const totalPages = Math.ceil(filtered.length / perPage);
 
   // =====================
   // CREATE
@@ -60,14 +84,14 @@ const Priorities: React.FC = () => {
   // =====================
   // EDIT
   // =====================
-  const handleEdit = (priority: Priority) => {
+  const handleEdit = (p: Priority) => {
     setEditMode(true);
-    setCurrentId(priority.id);
+    setCurrentId(p.id);
     setFormData({
-      name: priority.name,
-      level: priority.level,
-      description: priority.description || "",
-      color: priority.color,
+      name: p.name,
+      level: p.level,
+      description: p.description || "",
+      color: p.color,
     });
     setShow(true);
   };
@@ -75,33 +99,26 @@ const Priorities: React.FC = () => {
   // =====================
   // DELETE
   // =====================
-  const handleDelete = (id: number) => {
-    deletePriority(id)
-      .then(() => fetchPriorities())
-      .catch(console.error);
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this priority?")) return;
+    await deletePriority(id);
+    fetchPriorities();
   };
 
   // =====================
   // SUBMIT
   // =====================
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (editMode && currentId !== null) {
-      updatePriority(currentId, formData)
-        .then(() => {
-          fetchPriorities();
-          setShow(false);
-        })
-        .catch(console.error);
+    if (editMode && currentId) {
+      await updatePriority(currentId, formData);
     } else {
-      createPriority(formData)
-        .then(() => {
-          fetchPriorities();
-          setShow(false);
-        })
-        .catch(console.error);
+      await createPriority(formData);
     }
+
+    setShow(false);
+    fetchPriorities();
   };
 
   // =====================
@@ -117,9 +134,12 @@ const Priorities: React.FC = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold text-gray-800">Priorities</h2>
+
+      {/* HEADER */}
+      <div className="bg-white shadow rounded-lg p-4 flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold text-gray-800">
+          Priorities
+        </h2>
 
         <button
           onClick={handleCreate}
@@ -129,155 +149,166 @@ const Priorities: React.FC = () => {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white shadow rounded-lg overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100 border-b">
-            <tr>
-              <th className="p-3">#</th>
-              <th className="p-3">Name</th>
-              <th className="p-3">Level</th>
-              <th className="p-3">Description</th>
-              <th className="p-3">Indicator</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
+      {/* SEARCH */}
+      <div className="bg-white shadow rounded-lg p-4 mb-4">
+        <input
+          className="w-full border rounded px-3 py-2"
+          placeholder="Search priorities..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
-          <tbody>
-            {[...priorities]
-              .sort((a, b) => a.level - b.level)
-              .map((p, index) => (
-                <tr key={p.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3">{index + 1}</td>
-                  <td className="p-3 font-medium">{p.name}</td>
-                  <td className="p-3">{p.level}</td>
-                  <td className="p-3">{p.description}</td>
+      {/* TABLE */}
+      <div className="bg-white shadow rounded-lg p-4">
+        {loading ? (
+          <div className="text-center py-6">Loading...</div>
+        ) : (
+          <table className="w-full text-left">
+            <thead className="bg-gray-100 border-b">
+              <tr>
+                <th className="p-3">#</th>
+                <th className="p-3">Name</th>
+                <th className="p-3">Level</th>
+                <th className="p-3">Color</th>
+                <th className="p-3">Actions</th>
+              </tr>
+            </thead>
 
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-1 text-xs rounded ${colorMap[p.color]}`}
-                    >
-                      {p.name}
-                    </span>
-                  </td>
+            <tbody>
+              {[...paginated]
+                .sort((a, b) => a.level - b.level)
+                .map((p, i) => (
+                  <tr key={p.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3">{i + 1}</td>
+                    <td className="p-3 font-medium">{p.name}</td>
+                    <td className="p-3">{p.level}</td>
 
-                  <td className="p-3 flex gap-2">
-                    <button
-                      onClick={() => handleEdit(p)}
-                      className="px-3 py-1 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded"
-                    >
-                      Edit
-                    </button>
+                    <td className="p-3">
+                      <span
+                        className={`px-2 py-1 text-xs rounded ${colorMap[p.color]}`}
+                      >
+                        {p.color}
+                      </span>
+                    </td>
 
-                    <button
-                      onClick={() => handleDelete(p.id)}
-                      className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+                    <td className="p-3 flex gap-2">
+                      <button
+                        onClick={() => handleEdit(p)}
+                        className="px-3 py-1 bg-yellow-500 text-white rounded"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        className="px-3 py-1 bg-red-600 text-white rounded"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* PAGINATION */}
+        <div className="flex justify-between items-center mt-4">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+            className="px-3 py-1 bg-gray-200 rounded"
+          >
+            Prev
+          </button>
+
+          <span className="text-sm">
+            Page {page} of {totalPages || 1}
+          </span>
+
+          <button
+            disabled={page === totalPages}
+            onClick={() => setPage(page + 1)}
+            className="px-3 py-1 bg-gray-200 rounded"
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       {/* MODAL */}
       {show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-lg shadow-lg p-5">
-            <h3 className="text-xl font-semibold mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white p-5 rounded-lg w-[400px]">
+            <h2 className="text-lg font-semibold mb-3">
               {editMode ? "Edit Priority" : "Create Priority"}
-            </h3>
+            </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm mb-1">Name</label>
-                <input
-                  className="w-full border rounded px-3 py-2"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
 
-              {/* Level */}
-              <div>
-                <label className="block text-sm mb-1">Level</label>
-                <input
-                  type="number"
-                  className="w-full border rounded px-3 py-2"
-                  value={formData.level}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      level: Number(e.target.value),
-                    })
-                  }
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Lower number = higher priority
-                </p>
-              </div>
+              <input
+                className="w-full border rounded px-3 py-2"
+                placeholder="Name"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+              />
 
-              {/* Description */}
-              <div>
-                <label className="block text-sm mb-1">Description</label>
-                <textarea
-                  className="w-full border rounded px-3 py-2"
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </div>
+              <input
+                type="number"
+                className="w-full border rounded px-3 py-2"
+                placeholder="Level"
+                value={formData.level}
+                onChange={(e) =>
+                  setFormData({ ...formData, level: Number(e.target.value) })
+                }
+              />
 
-              {/* Color */}
-              <div>
-                <label className="block text-sm mb-1">Color</label>
-                <select
-                  className="w-full border rounded px-3 py-2"
-                  value={formData.color}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      color: e.target.value as Priority["color"],
-                    })
-                  }
-                >
-                  <option value="secondary">Secondary</option>
-                  <option value="info">Info</option>
-                  <option value="warning">Warning</option>
-                  <option value="danger">Danger</option>
-                  <option value="success">Success</option>
-                </select>
-              </div>
+              <textarea
+                className="w-full border rounded px-3 py-2"
+                placeholder="Description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+              />
 
-              {/* Actions */}
-              <div className="flex justify-end gap-2 pt-2">
+              <select
+                className="w-full border rounded px-3 py-2"
+                value={formData.color}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    color: e.target.value as Priority["color"],
+                  })
+                }
+              >
+                <option value="secondary">Secondary</option>
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="danger">Danger</option>
+                <option value="success">Success</option>
+              </select>
+
+              <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShow(false)}
-                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded"
+                  className="px-3 py-1 bg-gray-300 rounded"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                  className="px-3 py-1 bg-blue-600 text-white rounded"
                 >
-                  {editMode ? "Update" : "Save"}
+                  Save
                 </button>
               </div>
+
             </form>
           </div>
         </div>

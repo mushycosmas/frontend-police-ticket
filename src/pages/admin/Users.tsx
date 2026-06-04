@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import {
   getUsers,
@@ -16,20 +16,25 @@ type User = {
   email?: string;
 };
 
+const ITEMS_PER_PAGE = 6;
+
 const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [showForm, setShowForm] = useState<boolean>(false);
-  const [showDelete, setShowDelete] = useState<boolean>(false);
+  const [showForm, setShowForm] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   // =========================
   // LOAD USERS
   // =========================
-  const loadUsers = async (): Promise<void> => {
+  const loadUsers = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -37,7 +42,6 @@ const Users: React.FC = () => {
       const res = await getUsers();
       setUsers(res.data);
     } catch (err) {
-      console.error(err);
       setError("Failed to load users. Please try again.");
     } finally {
       setLoading(false);
@@ -49,50 +53,56 @@ const Users: React.FC = () => {
   }, []);
 
   // =========================
-  // EDIT USER
+  // SEARCH FILTER
   // =========================
-  const handleEdit = (user: User): void => {
+  const filteredUsers = useMemo(() => {
+    return users.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(search.toLowerCase()) ||
+        u.email?.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [users, search]);
+
+  // =========================
+  // PAGINATION
+  // =========================
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredUsers, page]);
+
+  // =========================
+  // ACTIONS
+  // =========================
+  const handleEdit = (user: User) => {
     setSelectedUser(user);
     setShowForm(true);
   };
 
-  // =========================
-  // DELETE USER
-  // =========================
-  const handleDelete = async (): Promise<void> => {
+  const handleDelete = async () => {
     if (!selectedUser) return;
 
-    try {
-      await deleteUser(selectedUser.id);
-      setShowDelete(false);
-      setSelectedUser(null);
-      loadUsers();
-    } catch (err) {
-      console.error("Delete failed", err);
-    }
+    await deleteUser(selectedUser.id);
+    setShowDelete(false);
+    setSelectedUser(null);
+    loadUsers();
   };
 
-  // =========================
-  // RESET PASSWORD
-  // =========================
-  const handleResetPassword = async (user: User): Promise<void> => {
+  const handleResetPassword = async (user: User) => {
     if (!confirm("Reset password to support123?")) return;
 
-    try {
-      await resetUserPassword(user.id);
-      alert("Password reset successfully");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to reset password");
-    }
+    await resetUserPassword(user.id);
+    alert("Password reset successfully");
   };
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
 
       {/* HEADER */}
-      <div className="bg-white shadow rounded-lg p-4 flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-800">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-semibold text-gray-800">
           User Management
         </h2>
 
@@ -105,6 +115,19 @@ const Users: React.FC = () => {
         >
           + Create User
         </button>
+      </div>
+
+      {/* SEARCH */}
+      <div className="mb-4">
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Search user by name or email..."
+          className="w-full md:w-1/3 border px-3 py-2 rounded-lg shadow-sm"
+        />
       </div>
 
       {/* ERROR */}
@@ -122,7 +145,7 @@ const Users: React.FC = () => {
           </div>
         ) : (
           <UserTable
-            users={users}
+            users={paginatedUsers}
             onEdit={handleEdit}
             onDelete={(user: User) => {
               setSelectedUser(user);
@@ -131,9 +154,40 @@ const Users: React.FC = () => {
             onResetPassword={handleResetPassword}
           />
         )}
+
+        {!loading && paginatedUsers.length === 0 && (
+          <div className="text-center text-gray-500 py-6">
+            No users found
+          </div>
+        )}
       </div>
 
-      {/* CREATE / EDIT MODAL */}
+      {/* PAGINATION */}
+      <div className="flex justify-between items-center mt-4">
+        <p className="text-sm text-gray-600">
+          Page {page} of {totalPages || 1}
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >
+            Prev
+          </button>
+
+          <button
+            disabled={page === totalPages || totalPages === 0}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* MODALS */}
       <UserFormModal
         show={showForm}
         onHide={() => setShowForm(false)}
@@ -144,7 +198,6 @@ const Users: React.FC = () => {
         }}
       />
 
-      {/* DELETE CONFIRM MODAL */}
       <ConfirmDeleteModal
         show={showDelete}
         onHide={() => {
