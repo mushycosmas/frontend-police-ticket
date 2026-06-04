@@ -72,6 +72,7 @@ const menuGroups: MenuGroup[] = [
       { to: "/admin/locations/regions", label: "Regions" },
       { to: "/admin/locations/districts", label: "Districts" },
       { to: "/admin/locations/wards", label: "Wards" },
+      { to: "/admin/locations/streets", label: "Streets" }, // FIXED
     ],
   },
   {
@@ -95,7 +96,7 @@ export const Sidebar: React.FC = () => {
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   /* =========================
-     AUTO OPEN BASED ON ROUTE
+     AUTO OPEN STATE
   ========================= */
   const getInitialOpenState = () => {
     const state: Record<string, boolean> = {};
@@ -116,7 +117,7 @@ export const Sidebar: React.FC = () => {
   );
 
   /* =========================
-     UPDATE WHEN ROUTE CHANGES
+     UPDATE ON ROUTE CHANGE
   ========================= */
   useEffect(() => {
     setOpenMenus((prev) => {

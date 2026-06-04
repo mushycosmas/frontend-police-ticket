@@ -13,6 +13,7 @@ export const updateRegion = (id, data) =>
 export const deleteRegion = (id) =>
     api.delete(`/locations/regions/${id}/`);
 
+
 // DISTRICTS
 export const getDistricts = () => api.get("/locations/districts/");
 export const getDistrict = (id) => api.get(`/locations/districts/${id}/`);
@@ -23,6 +24,7 @@ export const updateDistrict = (id, data) =>
 export const deleteDistrict = (id) =>
     api.delete(`/locations/districts/${id}/`);
 
+
 // WARDS
 export const getWards = () => api.get("/locations/wards/");
 export const getWard = (id) => api.get(`/locations/wards/${id}/`);
@@ -31,3 +33,16 @@ export const updateWard = (id, data) =>
     api.patch(`/locations/wards/${id}/`, data);
 export const deleteWard = (id) =>
     api.delete(`/locations/wards/${id}/`);
+
+
+// =====================
+// STREETS (NEW)
+// =====================
+export const getStreets = () => api.get("/locations/streets/");
+export const getStreet = (id) => api.get(`/locations/streets/${id}/`);
+export const createStreet = (data) =>
+    api.post("/locations/streets/", data);
+export const updateStreet = (id, data) =>
+    api.patch(`/locations/streets/${id}/`, data);
+export const deleteStreet = (id) =>
+    api.delete(`/locations/streets/${id}/`);

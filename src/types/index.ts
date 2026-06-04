@@ -66,6 +66,7 @@ export interface Ticket {
 
   team_id?: number;
   team_name?: string;
+  channel?:String;
 
   assigned_to_id?: number;
   assigned_to_name?: string;

@@ -33,6 +33,7 @@ import  Priorities  from "../pages/admin/Priorities";
 import  Regions  from "../pages/admin/locations/Regions";
 import  Districts  from "../pages/admin/locations/Districts";
 import  Wards  from "../pages/admin/locations/Wards";
+import  Streets  from "../pages/admin/locations/Streets";
 
 /* Team Lead Pages */
 // import { TeamTickets } from "../pages/team/TeamTickets";
@@ -162,6 +163,10 @@ const router = createBrowserRouter([
       {
         path: "/admin/locations/wards",
         element: <Wards />,
+      },
+      {
+        path: "/admin/locations/Streets",
+        element: <Streets />,
       },
 
       /* Reports */

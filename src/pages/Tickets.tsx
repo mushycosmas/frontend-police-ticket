@@ -77,7 +77,7 @@ export const Tickets: React.FC = () => {
       data = data.filter(
         (t) =>
           t.title?.toLowerCase().includes(q) ||
-          t.customer?.fullName?.toLowerCase().includes(q) ||
+          t.customer_name?.customer_name?.toLowerCase().includes(q) ||
           String(t.id).includes(q)
       );
     }
@@ -263,7 +263,7 @@ export const Tickets: React.FC = () => {
                         </button>
                       </td>
 
-                      <td className="p-3">{t.customer?.fullName ?? "—"}</td>
+                      <td className="p-3">{t.customer_name}</td>
 
                       <td className="p-3">
                         {channelConfig[t.channel]?.label}
