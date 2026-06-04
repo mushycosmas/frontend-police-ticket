@@ -16,7 +16,7 @@ interface ReportTicketModalProps {
 }
 
 interface FormData {
-  // ✅ UPDATED to match backend column names
+  // Backend column names
   customer_name: string;
   customer_phone: string;
   customer_email: string;
@@ -26,8 +26,8 @@ interface FormData {
   district: string;
   ward: string;
   
-  // Backend field
-  street: string;
+  // Backend field - CHANGED from street to street_id
+  street_id: string;
 
   // Ticket details
   title: string;
@@ -42,16 +42,13 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   const [error, setError] = useState('');
 
   const [form, setForm] = useState<FormData>({
-    // ✅ UPDATED field names
     customer_name: '',
     customer_phone: '',
     customer_email: '',
-
     region: '',
     district: '',
     ward: '',
-    street: '',
-
+    street_id: '',  // CHANGED from street to street_id
     title: '',
     description: '',
   });
@@ -73,11 +70,10 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   // ======================
   const validateStep = (step: number): boolean => {
     if (step === 1) {
-      // ✅ UPDATED field names
       return Boolean(
         form.customer_name.trim() &&
         form.customer_phone.trim() &&
-        form.street.trim()
+        form.street_id.trim()  // CHANGED from street to street_id
       );
     }
 
@@ -114,39 +110,57 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   // ======================
   // SUBMIT
   // ======================
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      const fd = new FormData();
+  try {
+    const fd = new FormData();
 
-      // Only send backend fields (exclude UI-only fields like region, district, ward)
-      const backendFields = ['customer_name', 'customer_phone', 'customer_email', 'street', 'title', 'description'];
-      
-      backendFields.forEach((key) => {
-        const value = form[key as keyof FormData];
-        if (value) fd.append(key, value);
-      });
+    // ======================
+    // ONLY BACKEND FIELDS
+    // ======================
+    fd.append("customer_name", form.customer_name);
+    fd.append("customer_phone", form.customer_phone);
+    fd.append("customer_email", form.customer_email);
+    fd.append("street_id", form.street_id);
+    fd.append("title", form.title);
+    fd.append("description", form.description);
 
-      if (files && files.length > 0) {
-        for (let i = 0; i < files.length; i++) {
-          fd.append('attachments', files[i]);
-        }
-      }
+    // ======================
+    // DEBUG LOGS
+    // ======================
+    console.log("===== FORM STATE =====", form);
 
-      await createTicket(fd);
-
-      onClose();
-      navigate('/');
-    } catch (err) {
-      setError('Failed to submit ticket. Please try again.');
-      console.error('Submit error:', err);
-    } finally {
-      setLoading(false);
+    console.log("===== FORMDATA =====");
+    for (const [key, value] of fd.entries()) {
+      console.log(key, value);
     }
-  };
+
+    // ======================
+    // FILES (IMPORTANT FIX)
+    // ======================
+    if (files && files.length > 0) {
+      Array.from(files).forEach((file) => {
+        fd.append("attachments", file); // ✅ MUST match backend
+      });
+    }
+
+    // ======================
+    // API CALL
+    // ======================
+    await createTicket(fd);
+
+    onClose();
+    // navigate("/");
+  } catch (err) {
+    console.error("Submit error:", err);
+    setError("Failed to submit ticket. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ======================
   // CANCEL

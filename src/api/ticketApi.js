@@ -10,7 +10,11 @@ export const getTicket = (id) =>
     api.get(`/tickets/tickets/${id}/`);
 
 export const createTicket = (data) =>
-    api.post("/tickets/tickets/", data);
+    api.post("/tickets/tickets/", data,{
+        headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    });
 
 export const updateTicket = (id, data) =>
     api.patch(`/tickets/tickets/${id}/`, data);

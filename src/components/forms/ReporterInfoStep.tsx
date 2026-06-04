@@ -15,12 +15,11 @@ interface Option {
 
 interface ReporterInfoStepProps {
   form: {
-    // ✅ UPDATED to match backend column names
     customer_name: string;
     customer_phone: string;
     customer_email: string;
 
-    street: string;  // This is the actual backend field
+    street_id: string;  // CHANGED from street to street_id
 
     // UI ONLY (NOT SAVED TO BACKEND - used for cascading selects)
     region: string;
@@ -60,7 +59,7 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
 
     onChange("district", "");
     onChange("ward", "");
-    onChange("street", "");
+    onChange("street_id", "");  // CHANGED from street to street_id
 
     getDistricts().then((res: any) => {
       const filtered = (res.data || []).filter(
@@ -80,7 +79,7 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
     }
 
     onChange("ward", "");
-    onChange("street", "");
+    onChange("street_id", "");  // CHANGED from street to street_id
 
     getWards().then((res: any) => {
       const filtered = (res.data || []).filter(
@@ -99,7 +98,7 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
       return;
     }
 
-    onChange("street", "");
+    onChange("street_id", "");  // CHANGED from street to street_id
 
     getStreets().then((res: any) => {
       const filtered = (res.data || []).filter(
@@ -124,7 +123,7 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
 
       <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-6">
 
-        {/* CUSTOMER INFO (BACKEND FIELDS) - UPDATED */}
+        {/* CUSTOMER INFO */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
           <Input
@@ -161,12 +160,12 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             <label className="text-sm text-gray-600">Region</label>
             <select
               value={form.region}
-              onChange={(e) => onChange('region', e.target.value)}
+              onChange={(e) => onChange('region', String(e.target.value))}
               className="w-full border-b border-gray-300 bg-transparent py-2 outline-none focus:border-brand-primary transition-colors"
             >
               <option value="">Select Region</option>
               {regions.map((r) => (
-                <option key={r.id} value={r.id}>
+                <option key={r.id} value={String(r.id)}>
                   {r.name}
                 </option>
               ))}
@@ -178,13 +177,13 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             <label className="text-sm text-gray-600">District</label>
             <select
               value={form.district}
-              onChange={(e) => onChange('district', e.target.value)}
+              onChange={(e) => onChange('district', String(e.target.value))}
               className="w-full border-b border-gray-300 bg-transparent py-2 outline-none focus:border-brand-primary transition-colors"
               disabled={!form.region}
             >
               <option value="">Select District</option>
               {districts.map((d) => (
-                <option key={d.id} value={d.id}>
+                <option key={d.id} value={String(d.id)}>
                   {d.name}
                 </option>
               ))}
@@ -201,34 +200,34 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             <label className="text-sm text-gray-600">Ward</label>
             <select
               value={form.ward}
-              onChange={(e) => onChange('ward', e.target.value)}
+              onChange={(e) => onChange('ward', String(e.target.value))}
               className="w-full border-b border-gray-300 bg-transparent py-2 outline-none focus:border-brand-primary transition-colors"
               disabled={!form.district}
             >
               <option value="">Select Ward</option>
               {wards.map((w) => (
-                <option key={w.id} value={w.id}>
+                <option key={w.id} value={String(w.id)}>
                   {w.name}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* STREET (ONLY BACKEND FIELD) */}
+          {/* STREET - Now using street_id */}
           <div>
             <label className="text-sm text-gray-600">
               Street <span className="text-red-500">*</span>
             </label>
             <select
-              value={form.street}
-              onChange={(e) => onChange('street', e.target.value)}
+              value={form.street_id}
+              onChange={(e) => onChange('street_id', String(e.target.value))}
               className="w-full border-b border-gray-300 bg-transparent py-2 outline-none focus:border-brand-primary transition-colors"
               disabled={!form.ward}
               required
             >
               <option value="">Select Street</option>
               {streets.map((s) => (
-                <option key={s.id} value={s.id}>
+                <option key={s.id} value={String(s.id)}>
                   {s.name}
                 </option>
               ))}

@@ -3,12 +3,9 @@ import { assignTicket } from "../../api/ticketApi";
 import { getUsers } from "../../api/userApi";
 import { getTeams } from "../../api/teamApi";
 
-/**
- * =====================
- * TYPES
- * =====================
- */
-
+/* =====================
+   TYPES
+===================== */
 type UserRole = "ADMIN" | "TEAM_LEAD" | "AGENT";
 
 interface User {
@@ -39,6 +36,9 @@ interface Props {
 
 type Mode = "agent" | "team";
 
+/* =====================
+   COMPONENT
+===================== */
 const AssignTicketForm: React.FC<Props> = ({
   ticket,
   ticketId,
@@ -49,16 +49,15 @@ const AssignTicketForm: React.FC<Props> = ({
 
   const [agents, setAgents] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-
   const [loading, setLoading] = useState(false);
 
   const [mode, setMode] = useState<Mode>("agent");
-  const [agentId, setAgentId] = useState<string>("");
-  const [teamId, setTeamId] = useState<string>("");
+  const [agentId, setAgentId] = useState("");
+  const [teamId, setTeamId] = useState("");
 
-  // =====================
-  // LOAD DATA
-  // =====================
+  /* =====================
+     LOAD DATA (FIXED)
+  ====================== */
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -67,21 +66,30 @@ const AssignTicketForm: React.FC<Props> = ({
           getTeams(),
         ]);
 
-        const allUsers: User[] = usersRes.data;
+        const allUsers: User[] = usersRes.data || [];
+        setTeams(teamsRes.data || []);
 
+        // ❌ DO NOT BLOCK if ticket has no team
         const ticketTeamId =
-          typeof ticket.team === "object"
-            ? ticket.team?.id
-            : ticket.team ?? ticket.team_id;
+          typeof ticket?.team === "object"
+            ? ticket?.team?.id
+            : ticket?.team ?? ticket?.team_id;
 
-        if (!ticketTeamId) return;
+        let filteredAgents: User[] = [];
 
-        const teamAgents = allUsers.filter(
-          (u) => u.role === "AGENT" && Number(u.team_id) === Number(ticketTeamId)
-        );
+        if (ticketTeamId) {
+          // filter by team
+          filteredAgents = allUsers.filter(
+            (u) =>
+              u.role === "AGENT" &&
+              Number(u.team_id) === Number(ticketTeamId)
+          );
+        } else {
+          // fallback: show ALL agents
+          filteredAgents = allUsers.filter((u) => u.role === "AGENT");
+        }
 
-        setAgents(teamAgents);
-        setTeams(teamsRes.data);
+        setAgents(filteredAgents);
       } catch (err) {
         console.error("Failed loading assign data", err);
       }
@@ -90,9 +98,9 @@ const AssignTicketForm: React.FC<Props> = ({
     if (ticket) loadData();
   }, [ticket]);
 
-  // =====================
-  // ASSIGN HANDLER
-  // =====================
+  /* =====================
+     ASSIGN HANDLER
+  ====================== */
   const handleAssign = async () => {
     if (loading) return;
 
@@ -105,24 +113,18 @@ const AssignTicketForm: React.FC<Props> = ({
         if (mode === "team") {
           if (!teamId) return alert("Select team");
 
-          payload = {
-            team_id: Number(teamId),
-          };
+          payload = { team_id: Number(teamId) };
         } else {
           if (!agentId) return alert("Select agent");
 
-          payload = {
-            assigned_to: Number(agentId),
-          };
+          payload = { assigned_to: Number(agentId) };
         }
       }
 
       if (user.role === "TEAM_LEAD") {
         if (!agentId) return alert("Select agent");
 
-        payload = {
-          assigned_to: Number(agentId),
-        };
+        payload = { assigned_to: Number(agentId) };
       }
 
       await assignTicket(ticketId, payload);
@@ -139,9 +141,9 @@ const AssignTicketForm: React.FC<Props> = ({
     }
   };
 
-  // =====================
-  // UI
-  // =====================
+  /* =====================
+     UI
+  ====================== */
   return (
     <div className="mt-4 space-y-3">
 
@@ -149,66 +151,60 @@ const AssignTicketForm: React.FC<Props> = ({
         Assign Ticket
       </h3>
 
-      {/* MODE (ADMIN ONLY) */}
+      {/* MODE */}
       {user.role === "ADMIN" && (
         <select
           value={mode}
           onChange={(e) => setMode(e.target.value as Mode)}
-          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border rounded-lg px-3 py-2 text-sm"
         >
           <option value="agent">Assign to Agent</option>
           <option value="team">Assign to Team</option>
         </select>
       )}
 
-      {/* TEAM SELECT */}
+      {/* TEAM */}
       {user.role === "ADMIN" && mode === "team" && (
         <select
           value={teamId}
           onChange={(e) => setTeamId(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border rounded-lg px-3 py-2 text-sm"
         >
           <option value="">Select Team</option>
-
-          {teams.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.name}
+          {teams.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
             </option>
           ))}
         </select>
       )}
 
-      {/* AGENT SELECT */}
-      {(mode === "agent" || user.role === "TEAM_LEAD") && (
-        <select
-          value={agentId}
-          onChange={(e) => setAgentId(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Select Agent</option>
+      {/* AGENTS */}
+      <select
+        value={agentId}
+        onChange={(e) => setAgentId(e.target.value)}
+        className="w-full border rounded-lg px-3 py-2 text-sm"
+      >
+        <option value="">Select Agent</option>
 
-          {agents.map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.first_name} {agent.last_name}
+        {agents.length === 0 ? (
+          <option disabled>No agents found</option>
+        ) : (
+          agents.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.first_name} {a.last_name}
             </option>
-          ))}
-        </select>
-      )}
+          ))
+        )}
+      </select>
 
       {/* BUTTON */}
       <button
         onClick={handleAssign}
         disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+        className="w-full bg-blue-600 text-white py-2 rounded-lg"
       >
-        {loading ? (
-          <>
-            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Assigning...
-          </>
-        ) : (
-          "Assign Ticket"
-        )}
+        {loading ? "Assigning..." : "Assign Ticket"}
       </button>
     </div>
   );

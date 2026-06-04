@@ -10,7 +10,7 @@ interface AttachmentsStepProps {
     customer_phone: string;
     customer_email: string;
 
-    street: string;
+    street_id: string;
 
     title: string;
     description: string;
@@ -129,7 +129,7 @@ export const AttachmentsStep: React.FC<AttachmentsStepProps> = ({
 
             <p>
               <span className="font-semibold text-gray-700">Street ID:</span>{" "}
-              {form.street}
+              {form.street_id}
             </p>
 
             <p>
