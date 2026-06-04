@@ -122,6 +122,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     fd.append("customer_name", form.customer_name);
     fd.append("customer_phone", form.customer_phone);
     fd.append("customer_email", form.customer_email);
+    fd.append("channel", "WEB");
     fd.append("street_id", form.street_id);
     fd.append("title", form.title);
     fd.append("description", form.description);
@@ -173,7 +174,16 @@ const handleSubmit = async (e: React.FormEvent) => {
     onClose();
     navigate(-1);
   };
+const handleCopyTicketNumber = async () => {
+  if (!createdTicketNumber) return;
 
+  try {
+    await navigator.clipboard.writeText(createdTicketNumber);
+    alert("Ticket number copied!");
+  } catch (err) {
+    console.error("Copy failed:", err);
+  }
+};
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
 
@@ -247,33 +257,47 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
       </div>
 
-            {success && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full text-center">
+        {success && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full text-center">
 
-                  <h2 className="text-xl font-bold text-green-600">
-                    Ticket Created Successfully 🎉
-                  </h2>
+      <h2 className="text-xl font-bold text-green-600">
+        Ticket Created Successfully 🎉
+      </h2>
 
-                  <p className="mt-3 text-gray-600">
-                    Your ticket number is:
-                  </p>
+      <p className="mt-3 text-gray-600">
+        Your ticket number is:
+      </p>
 
-                  <div className="mt-2 text-2xl font-bold text-blue-600">
-                    {createdTicketNumber}
-                  </div>
+      {/* Ticket Number Box */}
+      <div className="mt-3 flex items-center justify-center gap-2">
+        <span className="text-2xl font-bold text-blue-600">
+          {createdTicketNumber}
+        </span>
 
-                  <button
-                    onClick={() => setSuccess(false)}
-                    className="mt-5 px-4 py-2 bg-blue-600 text-white rounded"
-                  >
-                    Close
-                  </button>
+        <button
+          onClick={handleCopyTicketNumber}
+          className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+        >
+          Copy
+        </button>
+      </div>
 
-                </div>
-              </div>
-            )}      
+      {/* Optional success message */}
+      <p className="mt-4 text-sm text-gray-500">
+        Keep this number for tracking your ticket.
+      </p>
 
+      <button
+        onClick={() => setSuccess(false)}
+        className="mt-5 px-4 py-2 bg-blue-600 text-white rounded"
+      >
+        Close
+      </button>
+
+    </div>
+  </div>
+)}
     </div>
   );
 };
