@@ -214,11 +214,17 @@ export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn =>
     }
   }, [loadTickets]);
 
-  const handleResolve = useCallback(async (id: number): Promise<boolean> => {
+const handleResolve = useCallback(
+  async (id: number, comment: string = ''): Promise<boolean> => {
+    console.log("🔵 RESOLVE CLICKED");
+    console.log("Ticket ID:", id);
+    console.log("Comment:", comment);
+
     setIsResolving(true);
     setError(null);
+
     try {
-      await resolveTicket(id);
+      await resolveTicket(id, comment);
       await loadTickets();
       return true;
     } catch (err: any) {
@@ -228,13 +234,20 @@ export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn =>
     } finally {
       setIsResolving(false);
     }
-  }, [loadTickets]);
+  },
+  [loadTickets]
+);
+const handleClose = useCallback(
+  async (id: number, comment: string = ''): Promise<boolean> => {
+    console.log("🔴 CLOSE CLICKED");
+    console.log("Ticket ID:", id);
+    console.log("Comment:", comment);
 
-  const handleClose = useCallback(async (id: number): Promise<boolean> => {
     setIsClosing(true);
     setError(null);
+
     try {
-      await closeTicket(id);
+      await closeTicket(id, comment);
       await loadTickets();
       return true;
     } catch (err: any) {
@@ -244,8 +257,9 @@ export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn =>
     } finally {
       setIsClosing(false);
     }
-  }, [loadTickets]);
-
+  },
+  [loadTickets]
+);
   const handleCreate = useCallback(async (data: CreateTicketData): Promise<Ticket | null> => {
     setIsCreating(true);
     setError(null);

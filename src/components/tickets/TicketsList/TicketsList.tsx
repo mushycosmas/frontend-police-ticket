@@ -7,6 +7,7 @@ import { TicketsPagination } from './components/TicketsPagination';
 import { TicketsLoading } from './components/TicketsLoading';
 import { TicketsEmpty } from './components/TicketsEmpty';
 import { Ticket } from '../../../types/tickets/tickets.types';
+
 import CreateTicketModal from '../CreateTicketModal';
 import TicketViewModal from '../TicketViewModal';
 import { ConfirmModal } from '../../common/ConfirmModal';
@@ -36,117 +37,153 @@ export const TicketsList: React.FC = () => {
     isClosing,
   } = useTickets();
 
-  // Modal states
-  const [showCreate, setShowCreate] = useState<boolean>(false);
-  const [showView, setShowView] = useState<boolean>(false);
+  // ======================
+  // MODALS STATE
+  // ======================
+  const [showCreate, setShowCreate] = useState(false);
+  const [showView, setShowView] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [showDelete, setShowDelete] = useState<boolean>(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [deleteTicketNumber, setDeleteTicketNumber] = useState<string>('');
-  
-  // Comment modal states for resolve/close
-  const [showResolveModal, setShowResolveModal] = useState<boolean>(false);
-  const [showCloseModal, setShowCloseModal] = useState<boolean>(false);
-  const [actionTicketId, setActionTicketId] = useState<number | null>(null);
-  const [actionTicketNumber, setActionTicketNumber] = useState<string>('');
-  
-  // Toast notification state
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteTicketNumber, setDeleteTicketNumber] = useState('');
+
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+
+  const [actionTicketId, setActionTicketId] = useState<number | null>(null);
+  const [actionTicketNumber, setActionTicketNumber] = useState('');
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+  } | null>(null);
+
+  const showToast = (message: string, type: any) => {
     setToast({ message, type });
   };
 
-  const handleView = (ticket: Ticket): void => {
+  // ======================
+  // VIEW
+  // ======================
+  const handleView = (ticket: Ticket) => {
     setSelectedTicket(ticket);
     setShowView(true);
   };
 
-  const handleDeleteClick = (id: number, ticketNumber: string): void => {
+  // ======================
+  // DELETE
+  // ======================
+  const handleDeleteClick = (id: number, ticketNumber: string) => {
     setDeleteId(id);
     setDeleteTicketNumber(ticketNumber);
     setShowDelete(true);
   };
 
-  const confirmDelete = async (): Promise<void> => {
-    if (deleteId) {
-      const success = await handleDelete(deleteId);
-      if (success) {
-        showToast(`✅ Ticket ${deleteTicketNumber} deleted successfully`, 'success');
-        setShowDelete(false);
-        setDeleteId(null);
-        setDeleteTicketNumber('');
-      } else {
-        showToast(`❌ Failed to delete ticket ${deleteTicketNumber}`, 'error');
-      }
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+
+    const success = await handleDelete(deleteId);
+
+    if (success) {
+      showToast(`✅ Ticket ${deleteTicketNumber} deleted`, 'success');
+    } else {
+      showToast(`❌ Failed to delete ticket`, 'error');
     }
+
+    setShowDelete(false);
+    setDeleteId(null);
+    setDeleteTicketNumber('');
   };
 
-  // Handle resolve with comment
-  const handleResolveClick = (id: number, ticketNumber: string): void => {
+  // ======================
+  // RESOLVE
+  // ======================
+  const handleResolveClick = (id: number, ticketNumber: string) => {
     setActionTicketId(id);
     setActionTicketNumber(ticketNumber);
     setShowResolveModal(true);
   };
 
-  const confirmResolve = async (comment: string): Promise<void> => {
-    if (actionTicketId) {
-      const success = await handleResolve(actionTicketId);
-      if (success) {
-        if (comment && comment.trim()) {
-          showToast(`✅ Ticket ${actionTicketNumber} resolved successfully. Comment: "${comment.trim()}"`, 'success');
-        } else {
-          showToast(`✅ Ticket ${actionTicketNumber} resolved successfully`, 'success');
-        }
-        setShowResolveModal(false);
-        setActionTicketId(null);
-        setActionTicketNumber('');
-      } else {
-        showToast(`❌ Failed to resolve ticket ${actionTicketNumber}`, 'error');
-      }
+  const confirmResolve = async (comment: string) => {
+    if (!actionTicketId) return;
+
+    const trimmedComment = comment?.trim() || '';
+
+    console.log("RESOLVE CLICK:", {
+      id: actionTicketId,
+      comment: trimmedComment
+    });
+
+    const success = await handleResolve(actionTicketId, trimmedComment);
+
+    if (success) {
+      showToast(
+        trimmedComment
+          ? `✅ Ticket ${actionTicketNumber} resolved with comment`
+          : `✅ Ticket ${actionTicketNumber} resolved`,
+        'success'
+      );
+    } else {
+      showToast(`❌ Failed to resolve ticket`, 'error');
     }
+
+    setShowResolveModal(false);
+    setActionTicketId(null);
+    setActionTicketNumber('');
   };
 
-  // Handle close with comment
-  const handleCloseClick = (id: number, ticketNumber: string): void => {
+  // ======================
+  // CLOSE
+  // ======================
+  const handleCloseClick = (id: number, ticketNumber: string) => {
     setActionTicketId(id);
     setActionTicketNumber(ticketNumber);
     setShowCloseModal(true);
   };
 
-  const confirmClose = async (comment: string): Promise<void> => {
-    if (actionTicketId) {
-      const success = await handleClose(actionTicketId);
-      if (success) {
-        if (comment && comment.trim()) {
-          showToast(`✅ Ticket ${actionTicketNumber} closed successfully. Comment: "${comment.trim()}"`, 'success');
-        } else {
-          showToast(`✅ Ticket ${actionTicketNumber} closed successfully`, 'success');
-        }
-        setShowCloseModal(false);
-        setActionTicketId(null);
-        setActionTicketNumber('');
-      } else {
-        showToast(`❌ Failed to close ticket ${actionTicketNumber}`, 'error');
-      }
+  const confirmClose = async (comment: string) => {
+    if (!actionTicketId) return;
+
+    const trimmedComment = comment?.trim() || '';
+
+    console.log("CLOSE CLICK:", {
+      id: actionTicketId,
+      comment: trimmedComment
+    });
+
+    const success = await handleClose(actionTicketId, trimmedComment);
+
+    if (success) {
+      showToast(
+        trimmedComment
+          ? `✅ Ticket ${actionTicketNumber} closed with comment`
+          : `✅ Ticket ${actionTicketNumber} closed`,
+        'success'
+      );
+    } else {
+      showToast(`❌ Failed to close ticket`, 'error');
     }
+
+    setShowCloseModal(false);
+    setActionTicketId(null);
+    setActionTicketNumber('');
   };
 
-  const clearFilters = (): void => {
+  const clearFilters = () => {
     setSearch('');
     setFilterStatus('');
     setFilterPriority('');
   };
 
-  const hasFilters: boolean = !!(search || filterStatus || filterPriority);
+  const hasFilters = !!(search || filterStatus || filterPriority);
 
-  if (loading) {
-    return <TicketsLoading />;
-  }
+  if (loading) return <TicketsLoading />;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Toast Notification */}
+
+      {/* TOAST */}
       {toast && (
         <Toast
           message={toast.message}
@@ -155,11 +192,13 @@ export const TicketsList: React.FC = () => {
         />
       )}
 
-      <TicketsHeader 
-        totalCount={allTickets.length} 
-        onCreateClick={() => setShowCreate(true)} 
+      {/* HEADER */}
+      <TicketsHeader
+        totalCount={allTickets.length}
+        onCreateClick={() => setShowCreate(true)}
       />
 
+      {/* FILTERS */}
       <TicketsFilters
         search={search}
         filterStatus={filterStatus}
@@ -169,6 +208,7 @@ export const TicketsList: React.FC = () => {
         onPriorityChange={setFilterPriority}
       />
 
+      {/* TABLE */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         {tickets.length === 0 ? (
           <TicketsEmpty hasFilters={hasFilters} onClearFilters={clearFilters} />
@@ -184,6 +224,7 @@ export const TicketsList: React.FC = () => {
               isResolving={isResolving}
               isClosing={isClosing}
             />
+
             <TicketsPagination
               page={page}
               totalPages={totalPages}
@@ -193,13 +234,14 @@ export const TicketsList: React.FC = () => {
         )}
       </div>
 
-      {/* Modals */}
+      {/* CREATE */}
       <CreateTicketModal
         show={showCreate}
         onHide={() => setShowCreate(false)}
         onSuccess={refresh}
       />
 
+      {/* VIEW */}
       <TicketViewModal
         show={showView}
         ticket={selectedTicket}
@@ -210,30 +252,31 @@ export const TicketsList: React.FC = () => {
         onRefresh={refresh}
       />
 
+      {/* DELETE */}
       <ConfirmModal
         show={showDelete}
         title="Delete Ticket"
-        message={`Are you sure you want to delete ticket ${deleteTicketNumber}? This action cannot be undone.`}
+        message={`Delete ${deleteTicketNumber}?`}
         onHide={() => setShowDelete(false)}
         onConfirm={confirmDelete}
       />
 
-      {/* Resolve Comment Modal */}
+      {/* RESOLVE COMMENT */}
       <CommentModal
         show={showResolveModal}
         title="Resolve Ticket"
-        message={`Please provide any resolution notes or comments for ticket ${actionTicketNumber} (optional):`}
+        message={`Add resolution comment for ${actionTicketNumber}`}
         actionType="resolve"
         onHide={() => setShowResolveModal(false)}
         onConfirm={confirmResolve}
         loading={isResolving}
       />
 
-      {/* Close Comment Modal */}
+      {/* CLOSE COMMENT */}
       <CommentModal
         show={showCloseModal}
         title="Close Ticket"
-        message={`Please provide any closing comments or notes for ticket ${actionTicketNumber} (optional):`}
+        message={`Add closing comment for ${actionTicketNumber}`}
         actionType="close"
         onHide={() => setShowCloseModal(false)}
         onConfirm={confirmClose}

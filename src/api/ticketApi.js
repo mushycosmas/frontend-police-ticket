@@ -24,13 +24,20 @@ export const deleteTicket = (id) =>
 
 // ----------------------
 // TICKET ACTIONS
-// ----------------------
-export const resolveTicket = (id) =>
-    api.post(`/tickets/tickets/${id}/resolve/`);
 
-export const closeTicket = (id) =>
-    api.post(`/tickets/tickets/${id}/close/`);
 
+// Resolve ticket with optional comment
+export const resolveTicket = (id, comment = '') => {
+  return api.post(`/tickets/tickets/${id}/resolve/`, {
+    comment: comment?.trim() || null,
+  });
+};
+
+export const closeTicket = (id, comment = '') => {
+  return api.post(`/tickets/tickets/${id}/close/`, {
+    comment: comment?.trim() || null,
+  });
+};
 
 
 export const assignTicket = (id, data) =>
