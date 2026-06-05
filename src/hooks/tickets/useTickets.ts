@@ -46,8 +46,8 @@ interface UseTicketsReturn {
   loadTickets: () => Promise<void>;
   refresh: () => Promise<void>;
   handleDelete: (id: number) => Promise<boolean>;
-  handleResolve: (id: number) => Promise<boolean>;
-  handleClose: (id: number) => Promise<boolean>;
+  handleResolve: (id: number, comment?: string) => Promise<boolean>;  // ✅ FIXED: Added comment parameter
+  handleClose: (id: number, comment?: string) => Promise<boolean>;     // ✅ FIXED: Added comment parameter
   handleCreate: (data: CreateTicketData) => Promise<Ticket | null>;
   handleUpdate: (id: number, data: UpdateTicketData) => Promise<Ticket | null>;
   getTicket: (id: number) => Promise<Ticket | null>;
@@ -102,11 +102,9 @@ export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn =>
         created_at: item.created_at,
         updated_at: item.updated_at,
         resolved_at: item.resolved_at,
-        // Customer information from customer_detail
         customer_name: item.customer_detail?.customer_name || 'Unknown',
         customer_phone: item.customer_detail?.customer_phone || 'Not Provided',
         customer_email: item.customer_detail?.customer_email || 'Not Provided',
-        // Customer object
         customer: item.customer_detail ? {
           id: item.customer_detail.id,
           customer_name: item.customer_detail.customer_name,
@@ -118,20 +116,15 @@ export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn =>
           city: item.customer_detail.city,
           country: item.customer_detail.country,
         } : undefined,
-        // Assignment information
         assigned_to: item.assigned_to,
         assigned_to_name: item.assigned_to_name,
         assigned_by: item.assigned_by,
-        // Team information
         team: item.team,
         team_name: item.team_name,
-        // Location information
         street: item.street,
         street_name: item.street_name,
         location_full: item.location_full,
-        // Attachments
         attachments: item.attachments || [],
-        // History/Timeline
         history: item.timeline,
         updates: item.timeline,
       }));
@@ -214,15 +207,10 @@ export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn =>
     }
   }, [loadTickets]);
 
-const handleResolve = useCallback(
-  async (id: number, comment: string = ''): Promise<boolean> => {
-    console.log("🔵 RESOLVE CLICKED");
-    console.log("Ticket ID:", id);
-    console.log("Comment:", comment);
-
+  // Resolve ticket with optional comment
+  const handleResolve = useCallback(async (id: number, comment?: string): Promise<boolean> => {
     setIsResolving(true);
     setError(null);
-
     try {
       await resolveTicket(id, comment);
       await loadTickets();
@@ -234,18 +222,12 @@ const handleResolve = useCallback(
     } finally {
       setIsResolving(false);
     }
-  },
-  [loadTickets]
-);
-const handleClose = useCallback(
-  async (id: number, comment: string = ''): Promise<boolean> => {
-    console.log("🔴 CLOSE CLICKED");
-    console.log("Ticket ID:", id);
-    console.log("Comment:", comment);
+  }, [loadTickets]);
 
+  // Close ticket with optional comment
+  const handleClose = useCallback(async (id: number, comment?: string): Promise<boolean> => {
     setIsClosing(true);
     setError(null);
-
     try {
       await closeTicket(id, comment);
       await loadTickets();
@@ -257,9 +239,8 @@ const handleClose = useCallback(
     } finally {
       setIsClosing(false);
     }
-  },
-  [loadTickets]
-);
+  }, [loadTickets]);
+
   const handleCreate = useCallback(async (data: CreateTicketData): Promise<Ticket | null> => {
     setIsCreating(true);
     setError(null);

@@ -157,8 +157,8 @@ export const TicketsList: React.FC = () => {
     if (success) {
       showToast(
         trimmedComment
-          ? `✅ Ticket ${actionTicketNumber} closed with comment`
-          : `✅ Ticket ${actionTicketNumber} closed`,
+          ? ` Ticket ${actionTicketNumber} closed with comment`
+          : ` Ticket ${actionTicketNumber} closed`,
         'success'
       );
     } else {

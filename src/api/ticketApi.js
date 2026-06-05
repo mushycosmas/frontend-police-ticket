@@ -27,18 +27,15 @@ export const deleteTicket = (id) =>
 
 
 // Resolve ticket with optional comment
-export const resolveTicket = (id, comment = '') => {
-  return api.post(`/tickets/tickets/${id}/resolve/`, {
-    comment: comment?.trim() || null,
+export const resolveTicket = (id, comment = '') =>
+  api.post(`/tickets/tickets/${id}/resolve/`, {
+    comment: comment?.trim() || null
   });
-};
 
-export const closeTicket = (id, comment = '') => {
-  return api.post(`/tickets/tickets/${id}/close/`, {
-    comment: comment?.trim() || null,
+export const closeTicket = (id, comment = '') =>
+  api.post(`/tickets/tickets/${id}/close/`, {
+    comment: comment?.trim() || null
   });
-};
-
 
 export const assignTicket = (id, data) =>
     api.post(`/tickets/tickets/${id}/assign/`, data);
