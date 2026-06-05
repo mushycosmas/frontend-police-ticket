@@ -14,8 +14,8 @@ import { Home } from "../pages/Home/Home";
 import { PublicCreateTicket } from "../pages/PublicCreateTicket";
 
 import { Dashboard } from "../pages/Dashboard";
-import { Tickets } from "../pages/Tickets";
-import { TicketDetail } from "../pages/TicketDetail";
+import Tickets  from "../pages/Tickets";
+
 import { CreateTicket } from "../pages/CreateTicket";
 import { QAReview } from "../pages/QAReview";
 import { Reports } from "../pages/Reports";
@@ -74,11 +74,7 @@ const router = createBrowserRouter([
       {
         path: "/tickets",
         element: <Tickets />,
-      },
-      {
-        path: "/tickets/:id",
-        element: <TicketDetail />,
-      },
+      },  
       {
         path: "/tickets/create",
         element: <CreateTicket />,

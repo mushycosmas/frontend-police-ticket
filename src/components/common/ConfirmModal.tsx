@@ -1,69 +1,67 @@
-import React from "react";
+import React from 'react';
+import { Button } from './Button';
 
-type Props = {
+interface ConfirmModalProps {
   show: boolean;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
   onHide: () => void;
-  title?: string;
-  message?: string;
   onConfirm: () => void;
-};
+  loading?: boolean;
+}
 
-const ConfirmModal: React.FC<Props> = ({
+export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   show,
-  onHide,
   title,
   message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  variant = 'danger',
+  onHide,
   onConfirm,
+  loading = false,
 }) => {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-5">
-
-        {/* HEADER */}
-        <div className="flex justify-between items-center border-b pb-3">
-          <h2 className="text-lg font-semibold">
-            {title || "Confirm Action"}
-          </h2>
-
-          <button
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onHide}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          {title}
+        </h3>
+        
+        <p className="text-gray-600 mb-6">
+          {message}
+        </p>
+        
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="secondary"
             onClick={onHide}
-            className="text-gray-500 hover:text-black text-xl"
+            disabled={loading}
           >
-            ✕
-          </button>
-        </div>
-
-        {/* BODY */}
-        <div className="py-5 text-gray-700">
-          {message || "Are you sure you want to continue?"}
-        </div>
-
-        {/* FOOTER */}
-        <div className="flex justify-end gap-3 border-t pt-3">
-
-          <button
-            onClick={onHide}
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+            {cancelText}
+          </Button>
+          
+          <Button
+            variant='primary'
+            onClick={onConfirm}
+            loading={loading}
           >
-            Cancel
-          </button>
-
-          <button
-            onClick={() => {
-              onConfirm();
-              onHide();
-            }}
-            className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-          >
-            Yes, Delete
-          </button>
-
+            {confirmText}
+          </Button>
         </div>
       </div>
     </div>
   );
 };
-
-export default ConfirmModal;
