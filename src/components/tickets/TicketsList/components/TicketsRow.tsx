@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ticket, getChannelConfig, getStatusConfig, getPriorityConfig } from '../../../../types/tickets/tickets.types';
+import { Ticket, getChannelConfig } from '../../../../types/tickets/tickets.types';
 import { StatusBadge, PriorityBadge } from '../../../common/Badge';
 import { Button } from '../../../common/Button';
 import { timeAgo } from '../../../../utils/helpers';
@@ -7,9 +7,9 @@ import { timeAgo } from '../../../../utils/helpers';
 interface TicketsRowProps {
   ticket: Ticket;
   onView: (ticket: Ticket) => void;
-  onDelete: (id: number) => void;
-  onResolve: (id: number) => void;
-  onClose: (id: number) => void;
+  onDelete: (id: number, ticketNumber: string) => void;
+  onResolve: (id: number, ticketNumber: string) => void;
+  onClose: (id: number, ticketNumber: string) => void;
   isDeleting?: boolean;
   isResolving?: boolean;
   isClosing?: boolean;
@@ -27,14 +27,9 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
 }) => {
   // Get channel config safely using the helper function
   const channel = getChannelConfig(ticket.channel);
-  
-  // Get status and priority configs
-  const statusConfig = getStatusConfig(ticket.status);
-  const priorityConfig = getPriorityConfig(ticket.priority);
 
   return (
     <tr className="border-t hover:bg-gray-50 transition-colors">
-      {/* Use ticket_number instead of id */}
       <td className="p-3 text-sm font-mono">
         {ticket.ticket_number || `#${ticket.id}`}
       </td>
@@ -49,7 +44,6 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
         </button>
       </td>
       
-      {/* Customer information - display name and phone */}
       <td className="p-3">
         <div className="flex flex-col">
           <span className="text-sm font-medium text-gray-900">
@@ -63,7 +57,6 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
         </div>
       </td>
       
-      {/* Channel with icon */}
       <td className="p-3">
         <span className="flex items-center gap-1 text-sm">
           <span>{channel.icon}</span>
@@ -71,27 +64,22 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
         </span>
       </td>
       
-      {/* Status badge */}
       <td className="p-3">
         <StatusBadge status={ticket.status} />
       </td>
       
-      {/* Priority badge */}
       <td className="p-3">
         <PriorityBadge priority={ticket.priority} />
       </td>
       
-      {/* Agent assignment */}
       <td className="p-3 text-sm">
         {ticket.assigned_to_name || ticket.agent?.username || 'Unassigned'}
       </td>
       
-      {/* Created date */}
       <td className="p-3 text-sm text-gray-500">
         {timeAgo(ticket.created_at)}
       </td>
       
-      {/* Actions */}
       <td className="p-3 flex gap-2">
         <Button 
           size="sm" 
@@ -104,7 +92,7 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
         <Button 
           size="sm" 
           variant="danger" 
-          onClick={() => onDelete(ticket.id)}
+          onClick={() => onDelete(ticket.id, ticket.ticket_number)}
           loading={isDeleting}
           disabled={isDeleting || isResolving || isClosing}
         >
@@ -115,7 +103,7 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
           <Button 
             size="sm" 
             variant="secondary" 
-            onClick={() => onResolve(ticket.id)}
+            onClick={() => onResolve(ticket.id, ticket.ticket_number)}
             loading={isResolving}
             disabled={isDeleting || isResolving || isClosing}
           >
@@ -127,7 +115,7 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
           <Button 
             size="sm" 
             variant="primary" 
-            onClick={() => onClose(ticket.id)}
+            onClick={() => onClose(ticket.id, ticket.ticket_number)}
             loading={isClosing}
             disabled={isDeleting || isResolving || isClosing}
           >

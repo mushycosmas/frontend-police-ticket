@@ -5,9 +5,9 @@ import { TicketsRow } from './TicketsRow';
 interface TicketsTableProps {
   tickets: Ticket[];
   onView: (ticket: Ticket) => void;
-  onDelete: (id: number) => void;
-  onResolve: (id: number) => void;
-  onClose: (id: number) => void;
+  onDelete: (id: number, ticketNumber: string) => void;
+  onResolve: (id: number, ticketNumber: string) => void;
+  onClose: (id: number, ticketNumber: string) => void;
   isDeleting?: boolean;
   isResolving?: boolean;
   isClosing?: boolean;
