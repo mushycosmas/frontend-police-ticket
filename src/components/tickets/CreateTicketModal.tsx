@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-
 import { createTicket } from "../../api/ticketApi";
 import { getTeams } from "../../api/teamApi";
 import { getUsers } from "../../api/userApi";
@@ -14,6 +13,7 @@ type User = {
   id: number;
   first_name: string;
   last_name: string;
+  email: string;
   role: string;
   team_id?: number;
 };
@@ -38,7 +38,8 @@ const CreateTicketModal: React.FC<Props> = ({
 
   const [formData, setFormData] = useState({
     customer_name: "",
-    customer_contact: "",
+    customer_email: "",
+    customer_phone: "",
     channel: "WEB",
     title: "",
     description: "",
@@ -54,7 +55,8 @@ const CreateTicketModal: React.FC<Props> = ({
     if (show) {
       setFormData({
         customer_name: "",
-        customer_contact: "",
+        customer_email: "",
+        customer_phone: "",
         channel: "WEB",
         title: "",
         description: "",
@@ -62,7 +64,6 @@ const CreateTicketModal: React.FC<Props> = ({
         team: "",
         assigned_to: "",
       });
-
       setMode("agent");
     }
   }, [show]);
@@ -107,7 +108,7 @@ const CreateTicketModal: React.FC<Props> = ({
     };
 
     if (show) loadData();
-  }, [show]);
+  }, [show, user.role, user.team]);
 
   // ======================
   // HANDLE INPUT
@@ -127,42 +128,72 @@ const CreateTicketModal: React.FC<Props> = ({
   // SUBMIT
   // ======================
   const handleSubmit = async () => {
-    if (!formData.customer_name || !formData.title) {
-      alert("Customer name and title required");
+    // Validation
+    if (!formData.customer_name) {
+      alert("Customer name is required");
+      return;
+    }
+    if (!formData.customer_email) {
+      alert("Customer email is required");
+      return;
+    }
+    if (!formData.title) {
+      alert("Title is required");
       return;
     }
 
     try {
       setLoading(true);
 
-      let payload: any = { ...formData };
+      // Prepare payload for API
+      const payload: any = {
+        title: formData.title,
+        description: formData.description,
+        channel: formData.channel,
+        priority: formData.priority,
+        customer_name: formData.customer_name,
+        customer_email: formData.customer_email,
+        customer_phone: formData.customer_phone || "Not Provided",
+      };
 
+      // Handle assignment based on user role
       if (user.role === "ADMIN") {
-        if (mode === "team") {
-          payload.assigned_to = null;
-        }
-
-        if (mode === "agent" && !formData.assigned_to) {
-          alert("Select agent");
-          return;
+        if (mode === "agent") {
+          if (!formData.assigned_to) {
+            alert("Please select an agent");
+            setLoading(false);
+            return;
+          }
+          payload.assigned_to = parseInt(formData.assigned_to);
+        } else if (mode === "team") {
+          if (!formData.team) {
+            alert("Please select a team");
+            setLoading(false);
+            return;
+          }
+          payload.team = parseInt(formData.team);
         }
       }
 
       if (user.role === "TEAM_LEAD") {
         if (!formData.assigned_to) {
-          alert("Select agent");
+          alert("Please select an agent");
+          setLoading(false);
           return;
         }
-
+        payload.assigned_to = parseInt(formData.assigned_to);
         payload.team = user.team;
       }
+
+      console.log("Submitting payload:", payload);
 
       await createTicket(payload);
 
       onSuccess?.();
       onHide?.();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Create ticket error:", err);
+      alert(err.response?.data?.message || "Failed to create ticket");
     } finally {
       setLoading(false);
     }
@@ -172,15 +203,14 @@ const CreateTicketModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg p-5">
+      <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg p-5 max-h-[90vh] overflow-y-auto">
 
         {/* HEADER */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Create Ticket</h2>
-
           <button
             onClick={onHide}
-            className="text-gray-500 hover:text-black"
+            className="text-gray-500 hover:text-black text-xl"
           >
             ✕
           </button>
@@ -188,45 +218,60 @@ const CreateTicketModal: React.FC<Props> = ({
 
         {/* FORM */}
         <div className="space-y-3">
-
+          {/* Customer Name */}
           <input
-            className="w-full border rounded px-3 py-2"
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             name="customer_name"
-            placeholder="Customer Name"
+            placeholder="Customer Name *"
             value={formData.customer_name}
             onChange={handleChange}
           />
 
+          {/* Customer Email */}
           <input
-            className="w-full border rounded px-3 py-2"
-            name="customer_contact"
-            placeholder="Contact"
-            value={formData.customer_contact}
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            name="customer_email"
+            type="email"
+            placeholder="Customer Email *"
+            value={formData.customer_email}
             onChange={handleChange}
           />
 
+          {/* Customer Phone */}
+          <input
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            name="customer_phone"
+            placeholder="Customer Phone (Optional)"
+            value={formData.customer_phone}
+            onChange={handleChange}
+          />
+
+          {/* Channel */}
           <select
-            className="w-full border rounded px-3 py-2"
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             name="channel"
             value={formData.channel}
             onChange={handleChange}
           >
-            <option value="WEB">WEB</option>
-            <option value="EMAIL">EMAIL</option>
-            <option value="PHONE">PHONE</option>
-            <option value="CHAT">CHAT</option>
+            <option value="WEB">Web Form</option>
+            <option value="EMAIL">Email</option>
+            <option value="PHONE">Phone</option>
+            <option value="CHAT">Chat</option>
+            <option value="WALKIN">Walk-in</option>
           </select>
 
+          {/* Title */}
           <input
-            className="w-full border rounded px-3 py-2"
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             name="title"
-            placeholder="Title"
+            placeholder="Title *"
             value={formData.title}
             onChange={handleChange}
           />
 
+          {/* Description */}
           <textarea
-            className="w-full border rounded px-3 py-2"
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             name="description"
             rows={3}
             placeholder="Description"
@@ -234,61 +279,57 @@ const CreateTicketModal: React.FC<Props> = ({
             onChange={handleChange}
           />
 
+          {/* Priority */}
           <select
-            className="w-full border rounded px-3 py-2"
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             name="priority"
             value={formData.priority}
             onChange={handleChange}
           >
-            <option value="LOW">LOW</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="HIGH">HIGH</option>
-            <option value="CRITICAL">CRITICAL</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
           </select>
 
           {/* MODE (ADMIN ONLY) */}
           {user.role === "ADMIN" && (
             <select
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={mode}
-              onChange={(e) =>
-                setMode(e.target.value as "agent" | "team")
-              }
+              onChange={(e) => setMode(e.target.value as "agent" | "team")}
             >
               <option value="agent">Assign to Agent</option>
               <option value="team">Assign to Team</option>
             </select>
           )}
 
-          {/* AGENT */}
-          {(user.role === "TEAM_LEAD" ||
-            (user.role === "ADMIN" && mode === "agent")) && (
+          {/* AGENT SELECT */}
+          {(user.role === "TEAM_LEAD" || (user.role === "ADMIN" && mode === "agent")) && (
             <select
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               name="assigned_to"
               value={formData.assigned_to}
               onChange={handleChange}
             >
               <option value="">Select Agent</option>
-
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.first_name} {a.last_name}
+                  {a.first_name} {a.last_name} ({a.email})
                 </option>
               ))}
             </select>
           )}
 
-          {/* TEAM */}
+          {/* TEAM SELECT (ADMIN ONLY) */}
           {user.role === "ADMIN" && mode === "team" && (
             <select
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               name="team"
               value={formData.team}
               onChange={handleChange}
             >
               <option value="">Select Team</option>
-
               {teams.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -296,14 +337,13 @@ const CreateTicketModal: React.FC<Props> = ({
               ))}
             </select>
           )}
-
         </div>
 
         {/* FOOTER */}
         <div className="flex justify-end gap-2 mt-5">
           <button
             onClick={onHide}
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition-colors"
           >
             Cancel
           </button>
@@ -311,12 +351,11 @@ const CreateTicketModal: React.FC<Props> = ({
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             {loading ? "Creating..." : "Create Ticket"}
           </button>
         </div>
-
       </div>
     </div>
   );
