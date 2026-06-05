@@ -1,5 +1,5 @@
 import api from "./axios";
-
+import publicApi from "./publicApi";
 // ----------------------
 // TICKETS CRUD
 // ----------------------
@@ -48,3 +48,8 @@ export const getUnassignedTickets = () =>
 
 export const getClosedTickets = () =>
     api.get("/tickets/tickets/?filter=closed");
+
+export const trackTickets = (ticket_number) => {
+  // Fixed URL: removed duplicate /tickets/
+  return publicApi.get(`/tickets/tickets/track/?ticket_number=${ticket_number}`);
+};

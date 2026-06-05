@@ -59,19 +59,19 @@ export const TrackTicketModal: React.FC<Props> = ({ onClose }) => {
         )}
 
         {/* CONTENT */}
-        {/* {ticketStatus && !loading && (
+        {ticketStatus && !loading && (
           <div className="mt-4 space-y-4">
 
             <TicketStatusCard ticket={ticketStatus} />
 
-            <ActivityTimeline
+            {/* <ActivityTimeline
               updates={ticketStatus?.updates || ticketStatus?.activities || []}
-            />
+            /> */}
 
             <ActionButtons ticketId={trackId} />
 
           </div>
-        )} */}
+        )}
 
         {/* EMPTY STATE */}
         {!ticketStatus && !loading && !error && (
