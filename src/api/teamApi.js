@@ -4,14 +4,27 @@ import api from "./axios";
 // TEAMS API
 // =====================
 
-export const getTeams = () => api.get("/auth/teams/");
+// GET ALL TEAMS (pagination + search supported)
+export const getTeams = () => {
+  return api.get("/auth/teams/");
+};
 
-export const getTeam = (id) => api.get(`/auth/teams/${id}/`);
+// GET SINGLE TEAM
+export const getTeam = (id) => {
+  return api.get(`/auth/teams/${id}/`);
+};
 
-export const createTeam = (data) => api.post("/auth/teams/", data);
+// CREATE TEAM
+export const createTeam = (data) => {
+  return api.post("/auth/teams/", data);
+};
 
-export const updateTeam = (id, data) =>
-    api.patch(`/auth/teams/${id}/`, data);
+// UPDATE TEAM (partial update)
+export const updateTeam = (id, data) => {
+  return api.patch(`/auth/teams/${id}/`, data);
+};
 
-export const deleteTeam = (id) =>
-    api.delete(`/auth/teams/${id}/`);
+// DELETE TEAM
+export const deleteTeam = (id) => {
+  return api.delete(`/auth/teams/${id}/`);
+};
