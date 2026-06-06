@@ -2,163 +2,105 @@ import React from "react";
 
 type User = {
   id: number;
+  username?: string;
+  email?: string;
+  full_name?: string;
   first_name?: string;
   last_name?: string;
-  email?: string;
   role?: string;
   team_name?: string;
   is_active?: boolean;
 };
 
-type Props = {
+interface UserTableProps {
   users: User[];
   onEdit: (user: User) => void;
+  onViewDetails: (user: User) => void;
   onDelete: (user: User) => void;
   onResetPassword: (user: User) => void;
+}
+
+const getRoleBadgeColor = (role?: string) => {
+  const colors: Record<string, string> = {
+    ADMIN: "bg-red-100 text-red-800",
+    MANAGER: "bg-purple-100 text-purple-800",
+    TEAM_LEAD: "bg-blue-100 text-blue-800",
+    AGENT: "bg-green-100 text-green-800",
+    QA_ANALYST: "bg-yellow-100 text-yellow-800",
+  };
+  return colors[role || ""] || "bg-gray-100 text-gray-800";
 };
 
-const getRoleColor = (role?: string) => {
-  switch (role) {
-    case "ADMIN":
-      return "bg-gray-800";
-    case "MANAGER":
-      return "bg-blue-600";
-    case "TEAM_LEAD":
-      return "bg-cyan-500";
-    case "AGENT":
-      return "bg-green-600";
-    case "QA":
-      return "bg-yellow-500";
-    default:
-      return "bg-gray-400";
-  }
-};
-
-const UserTable: React.FC<Props> = ({
+const UserTable: React.FC<UserTableProps> = ({
   users,
   onEdit,
+  onViewDetails,
   onDelete,
   onResetPassword,
 }) => {
+  const getDisplayName = (user: User) => {
+    return user.full_name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || user.email;
+  };
+
   return (
     <div className="overflow-x-auto">
-
-      <table className="w-full border border-gray-200 text-sm">
-
-        {/* HEADER */}
-        <thead className="bg-gray-100 text-left">
+      <table className="w-full">
+        <thead className="bg-gray-50 border-b">
           <tr>
-            <th className="p-3">#</th>
-            <th className="p-3">Name</th>
-            <th className="p-3">Email</th>
-            <th className="p-3">Role</th>
-            <th className="p-3">Team</th>
-            <th className="p-3">Status</th>
-            <th className="p-3">Actions</th>
+            <th className="text-left p-3 text-xs font-medium text-gray-500">User</th>
+            <th className="text-left p-3 text-xs font-medium text-gray-500">Email</th>
+            <th className="text-left p-3 text-xs font-medium text-gray-500">Role</th>
+            <th className="text-left p-3 text-xs font-medium text-gray-500">Team</th>
+            <th className="text-left p-3 text-xs font-medium text-gray-500">Actions</th>
           </tr>
         </thead>
-
-        {/* BODY */}
         <tbody>
-
-          {users && users.length > 0 ? (
-            users.map((user, index) => (
-              <tr
-                key={user.id}
-                className="border-t hover:bg-gray-50"
-              >
-
-                {/* INDEX */}
-                <td className="p-3">{index + 1}</td>
-
-                {/* NAME */}
-                <td className="p-3 font-medium">
-                  {user.first_name} {user.last_name}
-                </td>
-
-                {/* EMAIL */}
-                <td className="p-3 text-gray-600">
-                  {user.email}
-                </td>
-
-                {/* ROLE */}
-                <td className="p-3">
-                  <span
-                    className={`text-white text-xs px-2 py-1 rounded ${getRoleColor(
-                      user.role
-                    )}`}
+          {users.map((user) => (
+            <tr key={user.id} className="border-t hover:bg-gray-50">
+              <td className="p-3">
+                <div className="font-medium text-gray-800">{getDisplayName(user)}</div>
+                <div className="text-xs text-gray-500">@{user.username}</div>
+              </td>
+              <td className="p-3 text-gray-600">{user.email}</td>
+              <td className="p-3">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
+                  {user.role?.replace("_", " ") || "Unknown"}
+                </span>
+              </td>
+              <td className="p-3 text-gray-600">{user.team_name || "—"}</td>
+              <td className="p-3">
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => onViewDetails(user)}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                    title="View Tickets"
                   >
-                    {user.role}
-                  </span>
-                </td>
-
-                {/* TEAM */}
-                <td className="p-3">
-                  {user.team_name ? (
-                    <span className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded">
-                      {user.team_name}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">No Team</span>
-                  )}
-                </td>
-
-                {/* STATUS */}
-                <td className="p-3">
-                  {user.is_active ? (
-                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
-                      Active
-                    </span>
-                  ) : (
-                    <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
-                      Inactive
-                    </span>
-                  )}
-                </td>
-
-                {/* ACTIONS */}
-                <td className="p-3 flex gap-2">
-
+                    🎫 Tickets
+                  </button>
                   <button
                     onClick={() => onEdit(user)}
-                    className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
+                    className="text-green-600 hover:text-green-800 text-sm"
                   >
-                    Edit
+                    ✏️ Edit
                   </button>
-
                   <button
                     onClick={() => onResetPassword(user)}
-                    className="px-3 py-1 text-xs bg-yellow-500 hover:bg-yellow-600 text-white rounded"
+                    className="text-yellow-600 hover:text-yellow-800 text-sm"
                   >
-                    Reset
+                    🔑 Reset
                   </button>
-
                   <button
                     onClick={() => onDelete(user)}
-                    className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+                    className="text-red-600 hover:text-red-800 text-sm"
                   >
-                    Delete
+                    🗑️ Delete
                   </button>
-
-                </td>
-
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td
-                colSpan={7}
-                className="text-center py-6 text-gray-500"
-              >
-                No users found
+                </div>
               </td>
             </tr>
-          )}
-
+          ))}
         </tbody>
-
       </table>
-
     </div>
   );
 };
