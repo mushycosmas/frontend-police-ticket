@@ -37,4 +37,5 @@ export interface TicketStatusData {
   attachments: Attachment[];
   channel: string;
   updates?: TicketUpdate[];  // ← Make this optional
+  activities?: TicketUpdate[];
 }
