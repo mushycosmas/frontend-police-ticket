@@ -1,29 +1,47 @@
 import React, { useEffect, useMemo, useState } from "react";
-
 import {
   getTeams,
   createTeam,
   updateTeam,
   deleteTeam,
+  getTeamMembers,
+  addTeamMember,
+  removeTeamMember,
 } from "../../api/teamApi";
+import { getUsers } from "../../api/userApi";
 
 interface Team {
   id: number;
   name: string;
   description?: string;
+  member_count?: number;
+  lead_id?: number;
+  lead_name?: string;
+}
+
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  full_name?: string;
+  role: string;
 }
 
 const ITEMS_PER_PAGE = 6;
 
 const Teams: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [selectedMember, setSelectedMember] = useState<User | null>(null);
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -31,6 +49,7 @@ const Teams: React.FC = () => {
   const [form, setForm] = useState({
     name: "",
     description: "",
+    lead_id: "",
   });
 
   // =========================
@@ -40,22 +59,48 @@ const Teams: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-
       const res = await getTeams();
-      const data = Array.isArray(res.data)
-        ? res.data
-        : res.data?.results || [];
-
+      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
       setTeams(data);
     } catch (err) {
       setError("Failed to load teams. Please try again.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  // =========================
+  // LOAD USERS (for team lead selection)
+  // =========================
+  const loadUsers = async () => {
+    try {
+      const res = await getUsers();
+      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+      // Filter only team leads and admins
+      const leads = data.filter((u: User) => u.role === "TEAM_LEAD" || u.role === "ADMIN");
+      setUsers(leads);
+    } catch (err) {
+      console.error("Failed to load users:", err);
+    }
+  };
+
+  // =========================
+  // LOAD TEAM MEMBERS
+  // =========================
+  const loadTeamMembers = async (teamId: number) => {
+    try {
+      const res = await getTeamMembers(teamId);
+      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+      setTeamMembers(data);
+    } catch (err) {
+      console.error("Failed to load team members:", err);
+    }
+  };
+
   useEffect(() => {
     loadTeams();
+    loadUsers();
   }, []);
 
   // =========================
@@ -73,7 +118,6 @@ const Teams: React.FC = () => {
   // PAGINATION
   // =========================
   const totalPages = Math.ceil(filteredTeams.length / ITEMS_PER_PAGE);
-
   const paginatedTeams = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
     return filteredTeams.slice(start, start + ITEMS_PER_PAGE);
@@ -87,17 +131,28 @@ const Teams: React.FC = () => {
     setForm({
       name: team.name || "",
       description: team.description || "",
+      lead_id: team.lead_id?.toString() || "",
     });
     setShowModal(true);
   };
 
+  const handleViewMembers = async (team: Team) => {
+    setSelectedTeam(team);
+    await loadTeamMembers(team.id);
+    setShowMembersModal(true);
+  };
+
   const handleDelete = async () => {
     if (!selectedTeam) return;
-
-    await deleteTeam(selectedTeam.id);
-    setShowDelete(false);
-    setSelectedTeam(null);
-    loadTeams();
+    try {
+      await deleteTeam(selectedTeam.id);
+      setShowDelete(false);
+      setSelectedTeam(null);
+      loadTeams();
+    } catch (err) {
+      setError("Failed to delete team");
+      console.error(err);
+    }
   };
 
   const handleSave = async () => {
@@ -107,15 +162,21 @@ const Teams: React.FC = () => {
         return;
       }
 
+      const teamData = {
+        name: form.name,
+        description: form.description,
+        lead_id: form.lead_id ? parseInt(form.lead_id) : null,
+      };
+
       if (selectedTeam) {
-        await updateTeam(selectedTeam.id, form);
+        await updateTeam(selectedTeam.id, teamData);
       } else {
-        await createTeam(form);
+        await createTeam(teamData);
       }
 
       setShowModal(false);
       setSelectedTeam(null);
-      setForm({ name: "", description: "" });
+      setForm({ name: "", description: "", lead_id: "" });
       loadTeams();
     } catch (error) {
       console.error("Save error:", error);
@@ -123,27 +184,55 @@ const Teams: React.FC = () => {
     }
   };
 
-  // =========================
-  // UI
-  // =========================
+  const handleAddMember = async () => {
+    if (!selectedMember || !selectedTeam) return;
+    try {
+      await addTeamMember(selectedTeam.id, selectedMember.id);
+      await loadTeamMembers(selectedTeam.id);
+      setSelectedMember(null);
+      alert("Member added successfully");
+    } catch (err) {
+      console.error("Failed to add member:", err);
+      alert("Failed to add member");
+    }
+  };
+
+  const handleRemoveMember = async (memberId: number) => {
+    if (!selectedTeam) return;
+    if (!confirm("Remove this member from the team?")) return;
+    try {
+      await removeTeamMember(selectedTeam.id, memberId);
+      await loadTeamMembers(selectedTeam.id);
+      alert("Member removed successfully");
+    } catch (err) {
+      console.error("Failed to remove member:", err);
+      alert("Failed to remove member");
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-
       {/* HEADER */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold text-gray-800">
-          Teams
-        </h2>
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-800">Teams</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Manage teams and their members
+          </p>
+        </div>
 
         <button
           onClick={() => {
             setSelectedTeam(null);
-            setForm({ name: "", description: "" });
+            setForm({ name: "", description: "", lead_id: "" });
             setShowModal(true);
           }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
         >
-          + Create Team
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Create Team
         </button>
       </div>
 
@@ -156,7 +245,7 @@ const Teams: React.FC = () => {
             setPage(1);
           }}
           placeholder="Search team by name or description..."
-          className="w-full md:w-1/3 border px-3 py-2 rounded-lg shadow-sm"
+          className="w-full md:w-1/3 border px-3 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -164,48 +253,75 @@ const Teams: React.FC = () => {
       {error && (
         <div className="bg-red-100 text-red-700 p-3 rounded mb-3">
           {error}
+          <button onClick={loadTeams} className="ml-3 underline">Try Again</button>
         </div>
       )}
 
       {/* TABLE */}
-      <div className="bg-white shadow rounded-lg p-4">
+      <div className="bg-white shadow rounded-lg overflow-hidden">
         {loading ? (
-          <div className="text-center py-6 text-gray-500">
-            Loading teams...
+          <div className="text-center py-12">
+            <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-2 text-gray-500">Loading teams...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="p-3">ID</th>
-                  <th className="p-3">Name</th>
-                  <th className="p-3">Description</th>
-                  <th className="p-3">Actions</th>
+                  <th className="p-3 text-xs font-medium text-gray-500">ID</th>
+                  <th className="p-3 text-xs font-medium text-gray-500">Team Name</th>
+                  <th className="p-3 text-xs font-medium text-gray-500">Description</th>
+                  <th className="p-3 text-xs font-medium text-gray-500">Team Lead</th>
+                  <th className="p-3 text-xs font-medium text-gray-500">Members</th>
+                  <th className="p-3 text-xs font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedTeams.map((team) => (
-                  <tr key={team.id} className="border-t">
-                    <td className="p-3">{team.id}</td>
-                    <td className="p-3 font-medium">{team.name}</td>
-                    <td className="p-3 text-gray-600">{team.description || "-"}</td>
-                    <td className="p-3 flex gap-2">
+                  <tr key={team.id} className="border-t hover:bg-gray-50">
+                    <td className="p-3 text-sm">{team.id}</td>
+                    <td className="p-3 font-medium text-gray-800">{team.name}</td>
+                    <td className="p-3 text-sm text-gray-600">{team.description || "-"}</td>
+                    <td className="p-3 text-sm">
+                      {team.lead_name ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          {team.lead_name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">No lead assigned</span>
+                      )}
+                    </td>
+                    <td className="p-3">
                       <button
-                        onClick={() => handleEdit(team)}
-                        className="bg-blue-500 text-white px-3 py-1 rounded"
+                        onClick={() => handleViewMembers(team)}
+                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
                       >
-                        Edit
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        {team.member_count || 0} Members
                       </button>
-                      <button
-                        onClick={() => {
-                          setSelectedTeam(team);
-                          setShowDelete(true);
-                        }}
-                        className="bg-red-500 text-white px-3 py-1 rounded"
-                      >
-                        Delete
-                      </button>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(team)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedTeam(team);
+                            setShowDelete(true);
+                          }}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -215,77 +331,192 @@ const Teams: React.FC = () => {
         )}
 
         {!loading && paginatedTeams.length === 0 && (
-          <div className="text-center text-gray-500 py-6">
-            No teams found
+          <div className="text-center py-12 text-gray-500">
+            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p>No teams found</p>
+            <button
+              onClick={() => {
+                setSelectedTeam(null);
+                setForm({ name: "", description: "", lead_id: "" });
+                setShowModal(true);
+              }}
+              className="mt-2 text-blue-600 hover:underline"
+            >
+              Create your first team
+            </button>
           </div>
         )}
       </div>
 
       {/* PAGINATION */}
-      <div className="flex justify-between items-center mt-4">
-        <p className="text-sm text-gray-600">
-          Page {page} of {totalPages || 1}
-        </p>
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center mt-4">
+          <p className="text-sm text-gray-600">
+            Page {page} of {totalPages} ({filteredTeams.length} total teams)
+          </p>
 
-        <div className="flex gap-2">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-          >
-            Prev
-          </button>
-
-          <button
-            disabled={page === totalPages || totalPages === 0}
-            onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-          >
-            Next
-          </button>
+          <div className="flex gap-2">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition-colors"
+            >
+              Prev
+            </button>
+            <button
+              disabled={page === totalPages || totalPages === 0}
+              onClick={() => setPage((p) => p + 1)}
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition-colors"
+            >
+              Next
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* MODAL (CREATE/EDIT) */}
+      {/* CREATE/EDIT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-xl p-6">
-            <h2 className="text-xl font-bold mb-4">
-              {selectedTeam ? "Edit Team" : "Create Team"}
-            </h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white w-full max-w-md rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b">
+              <h2 className="text-xl font-bold text-gray-800">
+                {selectedTeam ? "Edit Team" : "Create Team"}
+              </h2>
+            </div>
 
-            <input
-              className="w-full border p-3 rounded mb-3"
-              placeholder="Team name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Team Name *</label>
+                <input
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter team name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </div>
 
-            <textarea
-              className="w-full border p-3 rounded mb-3"
-              placeholder="Description"
-              rows={4}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter team description"
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </div>
 
-            <div className="flex justify-end gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Team Lead</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.lead_id}
+                  onChange={(e) => setForm({ ...form, lead_id: e.target.value })}
+                >
+                  <option value="">Select Team Lead</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name || user.username} ({user.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
               <button
                 onClick={() => {
                   setShowModal(false);
                   setSelectedTeam(null);
-                  setForm({ name: "", description: "" });
+                  setForm({ name: "", description: "", lead_id: "" });
                 }}
-                className="px-4 py-2 border rounded"
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
-
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-indigo-600 text-white rounded"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
-                Save
+                {selectedTeam ? "Update" : "Create"} Team
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MEMBERS MODAL */}
+      {showMembersModal && selectedTeam && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowMembersModal(false)}>
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-xl flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">{selectedTeam.name}</h2>
+                  <p className="text-sm text-gray-500">Team Members</p>
+                </div>
+                <button onClick={() => setShowMembersModal(false)} className="text-gray-500 hover:text-black">✕</button>
+              </div>
+            </div>
+
+            <div className="p-6 border-b">
+              <div className="flex gap-2">
+                <select
+                  className="flex-1 border rounded-lg px-3 py-2"
+                  value={selectedMember?.id || ""}
+                  onChange={(e) => {
+                    const member = teamMembers.find(m => m.id === parseInt(e.target.value));
+                    setSelectedMember(member || null);
+                  }}
+                >
+                  <option value="">Select a user to add...</option>
+                  {users.filter(u => !teamMembers.some(m => m.id === u.id)).map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name || user.username} ({user.role})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleAddMember}
+                  disabled={!selectedMember}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  Add Member
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {teamMembers.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No members in this team</div>
+              ) : (
+                <div className="space-y-2">
+                  {teamMembers.map((member) => (
+                    <div key={member.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="font-medium text-gray-800">
+                          {member.full_name || member.username}
+                        </div>
+                        <div className="text-sm text-gray-500">{member.email}</div>
+                        <div className="text-xs text-gray-400">Role: {member.role}</div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveMember(member.id)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t p-4 flex justify-end">
+              <button onClick={() => setShowMembersModal(false)} className="px-4 py-2 bg-gray-100 rounded-lg">
+                Close
               </button>
             </div>
           </div>
@@ -294,11 +525,19 @@ const Teams: React.FC = () => {
 
       {/* DELETE CONFIRMATION MODAL */}
       {showDelete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Delete Team</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete <span className="font-medium">"{selectedTeam?.name}"</span>?
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDelete(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-center mb-2">Delete Team</h3>
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to delete <span className="font-medium">"{selectedTeam?.name}"</span>?<br />
+              This action cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -306,15 +545,15 @@ const Teams: React.FC = () => {
                   setShowDelete(false);
                   setSelectedTeam(null);
                 }}
-                className="px-4 py-2 border rounded"
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
               >
-                Delete
+                Delete Team
               </button>
             </div>
           </div>
