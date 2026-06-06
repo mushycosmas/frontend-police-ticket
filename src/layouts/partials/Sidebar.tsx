@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getRoleLabel } from "../../utils/helpers";
+import LogoutButton from "../../components/common/LogoutButton";
 
 /* =========================
    TYPES
@@ -253,13 +254,7 @@ export const Sidebar: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg
-                     text-blue-200 hover:bg-brand-light hover:text-white text-sm"
-        >
-          ↩ Sign Out
-        </button>
+         <LogoutButton />
 
       </div>
 

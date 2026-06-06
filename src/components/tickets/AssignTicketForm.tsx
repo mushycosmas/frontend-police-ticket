@@ -26,6 +26,8 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
 
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   useEffect(() => {
     loadData();
   }, []);
@@ -45,20 +47,37 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
         usersData = [];
       }
       
-      const agents = usersData.filter((u: any) => u.role === "AGENT");
+      let agents = [];
+      
+      // Filter agents based on user role
+      if (user.role === "TEAM_LEAD") {
+        // Team Lead can only see agents from their team
+        const teamId = user.team_id || user.team;
+        agents = usersData.filter(
+          (u: any) => u.role === "AGENT" && Number(u.team_id) === Number(teamId)
+        );
+      } else if (user.role === "ADMIN") {
+        // Admin can see all agents
+        agents = usersData.filter((u: any) => u.role === "AGENT");
+      } else {
+        agents = [];
+      }
+      
       setAllUsers(agents);
 
-      // Load teams
-      const teamsRes = await getTeams();
-      let teamsData = [];
-      if (Array.isArray(teamsRes.data)) {
-        teamsData = teamsRes.data;
-      } else if (teamsRes.data?.results && Array.isArray(teamsRes.data.results)) {
-        teamsData = teamsRes.data.results;
-      } else {
-        teamsData = [];
+      // Load teams (only for Admin)
+      if (user.role === "ADMIN") {
+        const teamsRes = await getTeams();
+        let teamsData = [];
+        if (Array.isArray(teamsRes.data)) {
+          teamsData = teamsRes.data;
+        } else if (teamsRes.data?.results && Array.isArray(teamsRes.data.results)) {
+          teamsData = teamsRes.data.results;
+        } else {
+          teamsData = [];
+        }
+        setTeams(teamsData);
       }
-      setTeams(teamsData);
     } catch (error: any) {
       console.error("Failed to load data:", error);
       setError(error.message || "Failed to load data");
@@ -87,7 +106,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
         payload = { assigned_to: parseInt(selectedAgent) };
         await assignTicket(ticketId, payload);
         showToast(`✓ Ticket assigned to ${assignedTo} successfully!`, "success");
-      } else if (assignType === "team" && selectedTeam) {
+      } else if (assignType === "team" && selectedTeam && user.role === "ADMIN") {
         const team = teams.find(t => t.id === parseInt(selectedTeam));
         assignedTo = team?.name || "Team";
         payload = { team_id: parseInt(selectedTeam) };
@@ -120,7 +139,6 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
 
   return (
     <>
-      {/* Toast Notification */}
       {toast && (
         <Toast
           message={toast.message}
@@ -135,7 +153,6 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           <span className="text-xs text-gray-400">#{ticket.ticket_number}</span>
         </div>
         
-        {/* Error Display */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
             {error}
@@ -149,32 +166,61 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           </div>
         )}
         
-        {/* Assign Type Selection */}
-        <div className="flex gap-4 p-3 bg-gray-50 rounded-lg">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              value="agent"
-              checked={assignType === "agent"}
-              onChange={() => setAssignType("agent")}
-              className="cursor-pointer w-4 h-4 text-blue-600"
-            />
-            <span className="text-sm">👤 Assign to Agent</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              value="team"
-              checked={assignType === "team"}
-              onChange={() => setAssignType("team")}
-              className="cursor-pointer w-4 h-4 text-blue-600"
-            />
-            <span className="text-sm">👥 Assign to Team</span>
-          </label>
-        </div>
+        {/* Assign Type Selection - Team Leads can only assign to agents */}
+        {(user.role === "ADMIN") && (
+          <div className="flex gap-4 p-3 bg-gray-50 rounded-lg">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                value="agent"
+                checked={assignType === "agent"}
+                onChange={() => setAssignType("agent")}
+                className="cursor-pointer w-4 h-4 text-blue-600"
+              />
+              <span className="text-sm">👤 Assign to Agent</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                value="team"
+                checked={assignType === "team"}
+                onChange={() => setAssignType("team")}
+                className="cursor-pointer w-4 h-4 text-blue-600"
+              />
+              <span className="text-sm">👥 Assign to Team</span>
+            </label>
+          </div>
+        )}
 
-        {/* Agent Selection */}
-        {assignType === "agent" && (
+        {/* For Team Lead, show agent selection directly */}
+        {user.role === "TEAM_LEAD" && (
+          <div className="animate-fade-in">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Agent from Your Team
+            </label>
+            <select
+              value={selectedAgent}
+              onChange={(e) => setSelectedAgent(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">-- Select an agent from your team --</option>
+              {allUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  👤 {user.full_name || user.username} - {user.email}
+                </option>
+              ))}
+            </select>
+            {allUsers.length === 0 && (
+              <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
+                ⚠ No agents in your team. Please contact admin.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Agent Selection for Admin */}
+        {user.role === "ADMIN" && assignType === "agent" && (
           <div className="animate-fade-in">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Agent
@@ -200,8 +246,8 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           </div>
         )}
 
-        {/* Team Selection */}
-        {assignType === "team" && (
+        {/* Team Selection for Admin */}
+        {user.role === "ADMIN" && assignType === "team" && (
           <div className="animate-fade-in">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Team
@@ -260,7 +306,12 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           )}
           <button
             type="submit"
-            disabled={loading || (assignType === "agent" && !selectedAgent) || (assignType === "team" && !selectedTeam)}
+            disabled={
+              loading || 
+              (user.role === "TEAM_LEAD" && !selectedAgent) ||
+              (user.role === "ADMIN" && assignType === "agent" && !selectedAgent) ||
+              (user.role === "ADMIN" && assignType === "team" && !selectedTeam)
+            }
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             {loading ? (
