@@ -3,25 +3,40 @@ import { createTicket } from "../../api/ticketApi";
 import { getTeams } from "../../api/teamApi";
 import { getUsers } from "../../api/userApi";
 
-type Props = {
+interface Props {
   show: boolean;
   onHide: () => void;
   onSuccess?: () => void;
-};
+}
 
-type User = {
+interface User {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
   role: string;
   team_id?: number;
-};
+  username?: string;
+  full_name?: string;
+}
 
-type Team = {
+interface Team {
   id: number;
   name: string;
-};
+  member_count?: number;
+}
+
+interface FormData {
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  channel: string;
+  title: string;
+  description: string;
+  priority: string;
+  team: string;
+  assigned_to: string;
+}
 
 const CreateTicketModal: React.FC<Props> = ({
   show,
@@ -36,7 +51,7 @@ const CreateTicketModal: React.FC<Props> = ({
 
   const [mode, setMode] = useState<"agent" | "team">("agent");
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     customer_name: "",
     customer_email: "",
     customer_phone: "",
@@ -79,44 +94,51 @@ const CreateTicketModal: React.FC<Props> = ({
           getUsers(),
         ]);
 
-        const allTeams: Team[] = teamsRes.data || [];
-        const allUsers: User[] = usersRes.data || [];
+        // Handle API responses
+        let allTeams: Team[] = [];
+        if (Array.isArray(teamsRes.data)) {
+          allTeams = teamsRes.data;
+        } else if (teamsRes.data?.results) {
+          allTeams = teamsRes.data.results;
+        }
+
+        let allUsers: User[] = [];
+        if (Array.isArray(usersRes.data)) {
+          allUsers = usersRes.data;
+        } else if (usersRes.data?.results) {
+          allUsers = usersRes.data.results;
+        }
 
         setTeams(allTeams);
 
         if (user.role === "TEAM_LEAD") {
-          const teamId = user.team;
-
+          const teamId = user.team_id || user.team;
           const filtered = allUsers.filter(
             (u) =>
               u.role === "AGENT" &&
               Number(u.team_id) === Number(teamId)
           );
-
           setAgents(filtered);
-
           setFormData((prev) => ({
             ...prev,
-            team: String(teamId),
+            team: String(teamId || ""),
           }));
         } else {
           setAgents(allUsers.filter((u) => u.role === "AGENT"));
         }
       } catch (err) {
-        console.error(err);
+        console.error("Error loading data:", err);
       }
     };
 
     if (show) loadData();
-  }, [show, user.role, user.team]);
+  }, [show, user.role, user.team_id, user.team]);
 
   // ======================
   // HANDLE INPUT
   // ======================
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     setFormData({
       ...formData,
@@ -182,18 +204,19 @@ const CreateTicketModal: React.FC<Props> = ({
           return;
         }
         payload.assigned_to = parseInt(formData.assigned_to);
-        payload.team = user.team;
+        payload.team = user.team_id || user.team;
       }
 
       console.log("Submitting payload:", payload);
 
       await createTicket(payload);
 
-      onSuccess?.();
-      onHide?.();
+      if (onSuccess) onSuccess();
+      if (onHide) onHide();
     } catch (err: any) {
       console.error("Create ticket error:", err);
-      alert(err.response?.data?.message || "Failed to create ticket");
+      const errorMessage = err.response?.data?.message || err.message || "Failed to create ticket";
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -201,159 +224,204 @@ const CreateTicketModal: React.FC<Props> = ({
 
   if (!show) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg p-5 max-h-[90vh] overflow-y-auto">
+  const getUserDisplayName = (user: User) => {
+    return user.full_name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || user.email;
+  };
 
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onHide}>
+      <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* HEADER */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Create Ticket</h2>
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-xl font-semibold text-gray-800">Create Ticket</h2>
           <button
             onClick={onHide}
-            className="text-gray-500 hover:text-black text-xl"
+            className="text-gray-500 hover:text-black text-xl transition-colors"
           >
             ✕
           </button>
         </div>
 
         {/* FORM */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Customer Name */}
-          <input
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            name="customer_name"
-            placeholder="Customer Name *"
-            value={formData.customer_name}
-            onChange={handleChange}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              name="customer_name"
+              placeholder="Enter customer name"
+              value={formData.customer_name}
+              onChange={handleChange}
+            />
+          </div>
 
           {/* Customer Email */}
-          <input
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            name="customer_email"
-            type="email"
-            placeholder="Customer Email *"
-            value={formData.customer_email}
-            onChange={handleChange}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Customer Email *</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              name="customer_email"
+              type="email"
+              placeholder="customer@example.com"
+              value={formData.customer_email}
+              onChange={handleChange}
+            />
+          </div>
 
           {/* Customer Phone */}
-          <input
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            name="customer_phone"
-            placeholder="Customer Phone (Optional)"
-            value={formData.customer_phone}
-            onChange={handleChange}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone (Optional)</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              name="customer_phone"
+              placeholder="+255 123 456 789"
+              value={formData.customer_phone}
+              onChange={handleChange}
+            />
+          </div>
 
           {/* Channel */}
-          <select
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            name="channel"
-            value={formData.channel}
-            onChange={handleChange}
-          >
-            <option value="WEB">Web Form</option>
-            <option value="EMAIL">Email</option>
-            <option value="PHONE">Phone</option>
-            <option value="CHAT">Chat</option>
-            <option value="WALKIN">Walk-in</option>
-          </select>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Channel</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              name="channel"
+              value={formData.channel}
+              onChange={handleChange}
+            >
+              <option value="WEB">🌐 Web Form</option>
+              <option value="EMAIL">📧 Email</option>
+              <option value="PHONE">📞 Phone</option>
+              <option value="CHAT">💬 Chat</option>
+              <option value="WALKIN">🚶 Walk-in</option>
+            </select>
+          </div>
 
           {/* Title */}
-          <input
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            name="title"
-            placeholder="Title *"
-            value={formData.title}
-            onChange={handleChange}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              name="title"
+              placeholder="Brief description of the issue"
+              value={formData.title}
+              onChange={handleChange}
+            />
+          </div>
 
           {/* Description */}
-          <textarea
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            name="description"
-            rows={3}
-            placeholder="Description"
-            value={formData.description}
-            onChange={handleChange}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              name="description"
+              rows={4}
+              placeholder="Detailed description of the issue..."
+              value={formData.description}
+              onChange={handleChange}
+            />
+          </div>
 
           {/* Priority */}
-          <select
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            name="priority"
-            value={formData.priority}
-            onChange={handleChange}
-          >
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-            <option value="CRITICAL">Critical</option>
-          </select>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              name="priority"
+              value={formData.priority}
+              onChange={handleChange}
+            >
+              <option value="LOW">🟢 Low</option>
+              <option value="MEDIUM">🟡 Medium</option>
+              <option value="HIGH">🟠 High</option>
+              <option value="CRITICAL">🔴 Critical</option>
+            </select>
+          </div>
 
           {/* MODE (ADMIN ONLY) */}
           {user.role === "ADMIN" && (
-            <select
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as "agent" | "team")}
-            >
-              <option value="agent">Assign to Agent</option>
-              <option value="team">Assign to Team</option>
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assignment Type</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as "agent" | "team")}
+              >
+                <option value="agent">👤 Assign to Agent</option>
+                <option value="team">👥 Assign to Team</option>
+              </select>
+            </div>
           )}
 
           {/* AGENT SELECT */}
           {(user.role === "TEAM_LEAD" || (user.role === "ADMIN" && mode === "agent")) && (
-            <select
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              name="assigned_to"
-              value={formData.assigned_to}
-              onChange={handleChange}
-            >
-              <option value="">Select Agent</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.first_name} {a.last_name} ({a.email})
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Agent</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                name="assigned_to"
+                value={formData.assigned_to}
+                onChange={handleChange}
+              >
+                <option value="">-- Select an agent --</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {getUserDisplayName(agent)} - {agent.email}
+                  </option>
+                ))}
+              </select>
+              {agents.length === 0 && (
+                <p className="text-sm text-yellow-600 mt-1">No agents available</p>
+              )}
+            </div>
           )}
 
           {/* TEAM SELECT (ADMIN ONLY) */}
           {user.role === "ADMIN" && mode === "team" && (
-            <select
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              name="team"
-              value={formData.team}
-              onChange={handleChange}
-            >
-              <option value="">Select Team</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                name="team"
+                value={formData.team}
+                onChange={handleChange}
+              >
+                <option value="">-- Select a team --</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    👥 {team.name} ({team.member_count || 0} members)
+                  </option>
+                ))}
+              </select>
+              {teams.length === 0 && (
+                <p className="text-sm text-yellow-600 mt-1">No teams available</p>
+              )}
+            </div>
           )}
         </div>
 
-        {/* FOOTER */}
-        <div className="flex justify-end gap-2 mt-5">
+        {/* FOOTER BUTTONS */}
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
           <button
             onClick={onHide}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition-colors"
+            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
           >
             Cancel
           </button>
-
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {loading ? "Creating..." : "Create Ticket"}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Creating...
+              </>
+            ) : (
+              "Create Ticket"
+            )}
           </button>
         </div>
       </div>

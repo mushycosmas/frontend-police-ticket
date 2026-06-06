@@ -82,15 +82,15 @@ const menuGroups: MenuGroup[] = [
       { to: "/admin/locations/streets", label: "Streets" },
     ],
   },
-  {
-    label: "System",
-    icon: "🖥️",
-    roles: ["ADMIN"],
-    children: [
-      { to: "/settings", label: "Settings" },
-      { to: "/logs", label: "System Logs" },
-    ],
-  },
+  // {
+  //   label: "System",
+  //   icon: "🖥️",
+  //   roles: ["ADMIN"],
+  //   children: [
+  //     { to: "/settings", label: "Settings" },
+  //     { to: "/logs", label: "System Logs" },
+  //   ],
+  // },
 ];
 
 /* =========================

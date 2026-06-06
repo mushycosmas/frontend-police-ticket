@@ -1,212 +1,285 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { assignTicket } from "../../api/ticketApi";
-import { getUsers } from "../../api/userApi";
-import { getTeams } from "../../api/teamApi";
+import { getUsers, getTeams } from "../../api/userApi";
+import { Toast } from "../common/Toast";
 
-/* =====================
-   TYPES
-===================== */
-type UserRole = "ADMIN" | "TEAM_LEAD" | "AGENT";
-
-interface User {
-  id: number;
-  role: UserRole;
-  team_id?: number;
-  first_name?: string;
-  last_name?: string;
-}
-
-interface Team {
-  id: number;
-  name: string;
-}
-
-interface Ticket {
-  id: number;
-  team_id?: number;
-  team?: { id: number } | number;
-}
-
-interface Props {
-  ticket: Ticket;
+interface AssignTicketFormProps {
+  ticket: any;
   ticketId: number;
   onSuccess?: () => void;
   onClose?: () => void;
 }
 
-type Mode = "agent" | "team";
-
-/* =====================
-   COMPONENT
-===================== */
-const AssignTicketForm: React.FC<Props> = ({
+const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
   ticket,
   ticketId,
   onSuccess,
   onClose,
 }) => {
-  const user: User = JSON.parse(localStorage.getItem("user") || "{}");
-
-  const [agents, setAgents] = useState<User[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assignType, setAssignType] = useState<"agent" | "team">("agent");
+  const [selectedAgent, setSelectedAgent] = useState("");
+  const [selectedTeam, setSelectedTeam] = useState("");
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
 
-  const [mode, setMode] = useState<Mode>("agent");
-  const [agentId, setAgentId] = useState("");
-  const [teamId, setTeamId] = useState("");
-
-  /* =====================
-     LOAD DATA (FIXED)
-  ====================== */
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [usersRes, teamsRes] = await Promise.all([
-          getUsers(),
-          getTeams(),
-        ]);
+    loadData();
+  }, []);
 
-        const allUsers: User[] = usersRes.data || [];
-        setTeams(teamsRes.data || []);
-
-        // ❌ DO NOT BLOCK if ticket has no team
-        const ticketTeamId =
-          typeof ticket?.team === "object"
-            ? ticket?.team?.id
-            : ticket?.team ?? ticket?.team_id;
-
-        let filteredAgents: User[] = [];
-
-        if (ticketTeamId) {
-          // filter by team
-          filteredAgents = allUsers.filter(
-            (u) =>
-              u.role === "AGENT" &&
-              Number(u.team_id) === Number(ticketTeamId)
-          );
-        } else {
-          // fallback: show ALL agents
-          filteredAgents = allUsers.filter((u) => u.role === "AGENT");
-        }
-
-        setAgents(filteredAgents);
-      } catch (err) {
-        console.error("Failed loading assign data", err);
+  const loadData = async () => {
+    setLoadingData(true);
+    setError(null);
+    try {
+      // Load users
+      const usersRes = await getUsers();
+      let usersData = [];
+      if (Array.isArray(usersRes.data)) {
+        usersData = usersRes.data;
+      } else if (usersRes.data?.results && Array.isArray(usersRes.data.results)) {
+        usersData = usersRes.data.results;
+      } else {
+        usersData = [];
       }
-    };
+      
+      const agents = usersData.filter((u: any) => u.role === "AGENT");
+      setAllUsers(agents);
 
-    if (ticket) loadData();
-  }, [ticket]);
+      // Load teams
+      const teamsRes = await getTeams();
+      let teamsData = [];
+      if (Array.isArray(teamsRes.data)) {
+        teamsData = teamsRes.data;
+      } else if (teamsRes.data?.results && Array.isArray(teamsRes.data.results)) {
+        teamsData = teamsRes.data.results;
+      } else {
+        teamsData = [];
+      }
+      setTeams(teamsData);
+    } catch (error: any) {
+      console.error("Failed to load data:", error);
+      setError(error.message || "Failed to load data");
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
-  /* =====================
-     ASSIGN HANDLER
-  ====================== */
-  const handleAssign = async () => {
-    if (loading) return;
+  const showToast = (message: string, type: "success" | "error" | "info" | "warning") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-
-      let payload: any = {};
-
-      if (user.role === "ADMIN") {
-        if (mode === "team") {
-          if (!teamId) return alert("Select team");
-
-          payload = { team_id: Number(teamId) };
-        } else {
-          if (!agentId) return alert("Select agent");
-
-          payload = { assigned_to: Number(agentId) };
-        }
+      let payload = {};
+      let assignedTo = "";
+      
+      if (assignType === "agent" && selectedAgent) {
+        const agent = allUsers.find(u => u.id === parseInt(selectedAgent));
+        assignedTo = agent?.full_name || agent?.username || "Agent";
+        payload = { assigned_to: parseInt(selectedAgent) };
+        await assignTicket(ticketId, payload);
+        showToast(`✓ Ticket assigned to ${assignedTo} successfully!`, "success");
+      } else if (assignType === "team" && selectedTeam) {
+        const team = teams.find(t => t.id === parseInt(selectedTeam));
+        assignedTo = team?.name || "Team";
+        payload = { team_id: parseInt(selectedTeam) };
+        await assignTicket(ticketId, payload);
+        showToast(`✓ Ticket assigned to ${assignedTo} team successfully!`, "success");
       }
-
-      if (user.role === "TEAM_LEAD") {
-        if (!agentId) return alert("Select agent");
-
-        payload = { assigned_to: Number(agentId) };
-      }
-
-      await assignTicket(ticketId, payload);
-
-      setAgentId("");
-      setTeamId("");
-
-      onSuccess?.();
-      onClose?.();
-    } catch (err: any) {
-      console.error(err?.response?.data || err);
+      
+      // Delay closing to show toast
+      setTimeout(() => {
+        if (onSuccess) onSuccess();
+        if (onClose) onClose();
+      }, 1500);
+    } catch (error: any) {
+      console.error("Assignment failed:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to assign ticket";
+      showToast(`✗ ${errorMessage}`, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  /* =====================
-     UI
-  ====================== */
+  if (loadingData) {
+    return (
+      <div className="text-center py-6">
+        <div className="inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm text-gray-500 mt-2">Loading assignment options...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-4 space-y-3">
-
-      <h3 className="text-sm font-semibold text-gray-700">
-        Assign Ticket
-      </h3>
-
-      {/* MODE */}
-      {user.role === "ADMIN" && (
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value as Mode)}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="agent">Assign to Agent</option>
-          <option value="team">Assign to Team</option>
-        </select>
+    <>
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
 
-      {/* TEAM */}
-      {user.role === "ADMIN" && mode === "team" && (
-        <select
-          value={teamId}
-          onChange={(e) => setTeamId(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="">Select Team</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      )}
-
-      {/* AGENTS */}
-      <select
-        value={agentId}
-        onChange={(e) => setAgentId(e.target.value)}
-        className="w-full border rounded-lg px-3 py-2 text-sm"
-      >
-        <option value="">Select Agent</option>
-
-        {agents.length === 0 ? (
-          <option disabled>No agents found</option>
-        ) : (
-          agents.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.first_name} {a.last_name}
-            </option>
-          ))
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-800 text-lg">Assign Ticket</h3>
+          <span className="text-xs text-gray-400">#{ticket.ticket_number}</span>
+        </div>
+        
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+            {error}
+            <button 
+              type="button"
+              onClick={loadData}
+              className="ml-3 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
         )}
-      </select>
+        
+        {/* Assign Type Selection */}
+        <div className="flex gap-4 p-3 bg-gray-50 rounded-lg">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              value="agent"
+              checked={assignType === "agent"}
+              onChange={() => setAssignType("agent")}
+              className="cursor-pointer w-4 h-4 text-blue-600"
+            />
+            <span className="text-sm">👤 Assign to Agent</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              value="team"
+              checked={assignType === "team"}
+              onChange={() => setAssignType("team")}
+              className="cursor-pointer w-4 h-4 text-blue-600"
+            />
+            <span className="text-sm">👥 Assign to Team</span>
+          </label>
+        </div>
 
-      {/* BUTTON */}
-      <button
-        onClick={handleAssign}
-        disabled={loading}
-        className="w-full bg-blue-600 text-white py-2 rounded-lg"
-      >
-        {loading ? "Assigning..." : "Assign Ticket"}
-      </button>
-    </div>
+        {/* Agent Selection */}
+        {assignType === "agent" && (
+          <div className="animate-fade-in">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Agent
+            </label>
+            <select
+              value={selectedAgent}
+              onChange={(e) => setSelectedAgent(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">-- Select an agent --</option>
+              {allUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  👤 {user.full_name || user.username} - {user.email}
+                </option>
+              ))}
+            </select>
+            {allUsers.length === 0 && (
+              <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
+                ⚠ No agents available. Please add agents first.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Team Selection */}
+        {assignType === "team" && (
+          <div className="animate-fade-in">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Team
+            </label>
+            <select
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">-- Select a team --</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  👥 {team.name} ({team.member_count || 0} members)
+                </option>
+              ))}
+            </select>
+            {teams.length === 0 && (
+              <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
+                ⚠ No teams available. Please create a team first.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Current Assignment Info */}
+        <div className="text-sm bg-blue-50 rounded-lg p-3 border border-blue-100">
+          <p className="text-gray-600 mb-1">📋 Current Assignment:</p>
+          {ticket.assigned_to_name ? (
+            <p className="font-medium text-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              Assigned to: {ticket.assigned_to_name}
+            </p>
+          ) : ticket.team_name ? (
+            <p className="font-medium text-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+              Team: {ticket.team_name}
+            </p>
+          ) : (
+            <p className="text-yellow-600 flex items-center gap-2">
+              ⚠ Not assigned yet
+            </p>
+          )}
+        </div>
+
+        {/* Buttons */}
+        <div className="flex justify-end gap-3 pt-3 border-t">
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={loading || (assignType === "agent" && !selectedAgent) || (assignType === "team" && !selectedTeam)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Assigning...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Assign Ticket
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </>
   );
 };
 

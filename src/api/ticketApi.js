@@ -22,6 +22,10 @@ export const updateTicket = (id, data) =>
 export const deleteTicket = (id) =>
     api.delete(`/tickets/tickets/${id}/`);
 
+
+// Update ticket priority - uses the update endpoint
+export const updateTicketPriority = (id, priority) =>
+  api.patch(`/tickets/tickets/${id}/`, { priority });
 // ----------------------
 // TICKET ACTIONS
 
