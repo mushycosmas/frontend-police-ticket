@@ -31,7 +31,8 @@ const ITEMS_PER_PAGE = 6;
 
 const Teams: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [teamLeads, setTeamLeads] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,9 +53,6 @@ const Teams: React.FC = () => {
     lead_id: "",
   });
 
-  // =========================
-  // LOAD TEAMS
-  // =========================
   const loadTeams = async () => {
     try {
       setLoading(true);
@@ -70,24 +68,18 @@ const Teams: React.FC = () => {
     }
   };
 
-  // =========================
-  // LOAD USERS (for team lead selection)
-  // =========================
-  const loadUsers = async () => {
+  const loadAllUsers = async () => {
     try {
       const res = await getUsers();
       const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
-      // Filter only team leads and admins
+      setAllUsers(data);
       const leads = data.filter((u: User) => u.role === "TEAM_LEAD" || u.role === "ADMIN");
-      setUsers(leads);
+      setTeamLeads(leads);
     } catch (err) {
       console.error("Failed to load users:", err);
     }
   };
 
-  // =========================
-  // LOAD TEAM MEMBERS
-  // =========================
   const loadTeamMembers = async (teamId: number) => {
     try {
       const res = await getTeamMembers(teamId);
@@ -100,12 +92,9 @@ const Teams: React.FC = () => {
 
   useEffect(() => {
     loadTeams();
-    loadUsers();
+    loadAllUsers();
   }, []);
 
-  // =========================
-  // SEARCH FILTER
-  // =========================
   const filteredTeams = useMemo(() => {
     return teams.filter(
       (t) =>
@@ -114,18 +103,12 @@ const Teams: React.FC = () => {
     );
   }, [teams, search]);
 
-  // =========================
-  // PAGINATION
-  // =========================
   const totalPages = Math.ceil(filteredTeams.length / ITEMS_PER_PAGE);
   const paginatedTeams = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
     return filteredTeams.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredTeams, page]);
 
-  // =========================
-  // ACTIONS
-  // =========================
   const handleEdit = (team: Team) => {
     setSelectedTeam(team);
     setForm({
@@ -190,6 +173,8 @@ const Teams: React.FC = () => {
       await addTeamMember(selectedTeam.id, selectedMember.id);
       await loadTeamMembers(selectedTeam.id);
       setSelectedMember(null);
+      const selectElement = document.getElementById('member-select') as HTMLSelectElement;
+      if (selectElement) selectElement.value = "";
       alert("Member added successfully");
     } catch (err) {
       console.error("Failed to add member:", err);
@@ -210,17 +195,17 @@ const Teams: React.FC = () => {
     }
   };
 
+  const availableUsers = allUsers.filter(
+    (user) => !teamMembers.some((member) => member.id === user.id)
+  );
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-4">
         <div>
           <h2 className="text-2xl font-semibold text-gray-800">Teams</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage teams and their members
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Manage teams and their members</p>
         </div>
-
         <button
           onClick={() => {
             setSelectedTeam(null);
@@ -236,7 +221,6 @@ const Teams: React.FC = () => {
         </button>
       </div>
 
-      {/* SEARCH */}
       <div className="mb-4">
         <input
           value={search}
@@ -249,7 +233,6 @@ const Teams: React.FC = () => {
         />
       </div>
 
-      {/* ERROR */}
       {error && (
         <div className="bg-red-100 text-red-700 p-3 rounded mb-3">
           {error}
@@ -257,7 +240,6 @@ const Teams: React.FC = () => {
         </div>
       )}
 
-      {/* TABLE */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         {loading ? (
           <div className="text-center py-12">
@@ -342,7 +324,6 @@ const Teams: React.FC = () => {
                 setForm({ name: "", description: "", lead_id: "" });
                 setShowModal(true);
               }}
-              className="mt-2 text-blue-600 hover:underline"
             >
               Create your first team
             </button>
@@ -350,13 +331,9 @@ const Teams: React.FC = () => {
         )}
       </div>
 
-      {/* PAGINATION */}
       {totalPages > 1 && (
         <div className="flex justify-between items-center mt-4">
-          <p className="text-sm text-gray-600">
-            Page {page} of {totalPages} ({filteredTeams.length} total teams)
-          </p>
-
+          <p className="text-sm text-gray-600">Page {page} of {totalPages} ({filteredTeams.length} total teams)</p>
           <div className="flex gap-2">
             <button
               disabled={page === 1}
@@ -376,16 +353,12 @@ const Teams: React.FC = () => {
         </div>
       )}
 
-      {/* CREATE/EDIT MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white w-full max-w-md rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-800">
-                {selectedTeam ? "Edit Team" : "Create Team"}
-              </h2>
+              <h2 className="text-xl font-bold text-gray-800">{selectedTeam ? "Edit Team" : "Create Team"}</h2>
             </div>
-
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Team Name *</label>
@@ -396,7 +369,6 @@ const Teams: React.FC = () => {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
@@ -407,7 +379,6 @@ const Teams: React.FC = () => {
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Team Lead</label>
                 <select
@@ -416,7 +387,7 @@ const Teams: React.FC = () => {
                   onChange={(e) => setForm({ ...form, lead_id: e.target.value })}
                 >
                   <option value="">Select Team Lead</option>
-                  {users.map((user) => (
+                  {teamLeads.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.full_name || user.username} ({user.role})
                     </option>
@@ -424,7 +395,6 @@ const Teams: React.FC = () => {
                 </select>
               </div>
             </div>
-
             <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
               <button
                 onClick={() => {
@@ -436,10 +406,7 @@ const Teams: React.FC = () => {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
+              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
                 {selectedTeam ? "Update" : "Create"} Team
               </button>
             </div>
@@ -447,7 +414,6 @@ const Teams: React.FC = () => {
         </div>
       )}
 
-      {/* MEMBERS MODAL */}
       {showMembersModal && selectedTeam && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowMembersModal(false)}>
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-xl flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
@@ -460,19 +426,20 @@ const Teams: React.FC = () => {
                 <button onClick={() => setShowMembersModal(false)} className="text-gray-500 hover:text-black">✕</button>
               </div>
             </div>
-
             <div className="p-6 border-b">
               <div className="flex gap-2">
                 <select
-                  className="flex-1 border rounded-lg px-3 py-2"
+                  id="member-select"
+                  className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={selectedMember?.id || ""}
                   onChange={(e) => {
-                    const member = teamMembers.find(m => m.id === parseInt(e.target.value));
-                    setSelectedMember(member || null);
+                    const userId = parseInt(e.target.value);
+                    const user = availableUsers.find(u => u.id === userId);
+                    setSelectedMember(user || null);
                   }}
                 >
                   <option value="">Select a user to add...</option>
-                  {users.filter(u => !teamMembers.some(m => m.id === u.id)).map((user) => (
+                  {availableUsers.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.full_name || user.username} ({user.role})
                     </option>
@@ -481,31 +448,25 @@ const Teams: React.FC = () => {
                 <button
                   onClick={handleAddMember}
                   disabled={!selectedMember}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Add Member
                 </button>
               </div>
             </div>
-
             <div className="flex-1 overflow-y-auto p-6">
               {teamMembers.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">No members in this team</div>
               ) : (
                 <div className="space-y-2">
                   {teamMembers.map((member) => (
-                    <div key={member.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div key={member.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div>
-                        <div className="font-medium text-gray-800">
-                          {member.full_name || member.username}
-                        </div>
+                        <div className="font-medium text-gray-800">{member.full_name || member.username}</div>
                         <div className="text-sm text-gray-500">{member.email}</div>
-                        <div className="text-xs text-gray-400">Role: {member.role}</div>
+                        <div className="text-xs text-gray-400 mt-1">Role: {member.role}</div>
                       </div>
-                      <button
-                        onClick={() => handleRemoveMember(member.id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                      >
+                      <button onClick={() => handleRemoveMember(member.id)} className="text-red-600 hover:text-red-800 text-sm px-3 py-1 rounded hover:bg-red-50 transition-colors">
                         Remove
                       </button>
                     </div>
@@ -513,9 +474,8 @@ const Teams: React.FC = () => {
                 </div>
               )}
             </div>
-
             <div className="border-t p-4 flex justify-end">
-              <button onClick={() => setShowMembersModal(false)} className="px-4 py-2 bg-gray-100 rounded-lg">
+              <button onClick={() => setShowMembersModal(false)} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                 Close
               </button>
             </div>
@@ -523,7 +483,6 @@ const Teams: React.FC = () => {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
       {showDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDelete(false)}>
           <div className="bg-white rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
@@ -536,8 +495,7 @@ const Teams: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-center mb-2">Delete Team</h3>
             <p className="text-gray-600 text-center mb-6">
-              Are you sure you want to delete <span className="font-medium">"{selectedTeam?.name}"</span>?<br />
-              This action cannot be undone.
+              Are you sure you want to delete <span className="font-medium">"{selectedTeam?.name}"</span>? This action cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -549,10 +507,7 @@ const Teams: React.FC = () => {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
-              >
+              <button onClick={handleDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
                 Delete Team
               </button>
             </div>

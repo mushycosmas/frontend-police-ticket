@@ -17,6 +17,7 @@ interface User {
   email: string;
   role: string;
   team_id?: number;
+  team?: number;
   username?: string;
   full_name?: string;
 }
@@ -118,18 +119,38 @@ const CreateTicketModal: React.FC<Props> = ({
 
         setTeams(allTeams);
 
+        console.log("Current user:", user);
+        console.log("User role:", user.role);
+        console.log("User team_id:", user.team_id);
+        console.log("User team:", user.team);
+
         if (user.role === "TEAM_LEAD") {
+          // Get the team ID from multiple possible sources
           const teamId = user.team_id || user.team;
-          const filtered = allUsers.filter(
-            (u) =>
-              u.role === "AGENT" &&
-              Number(u.team_id) === Number(teamId)
+          console.log("Looking for agents in team:", teamId);
+          
+          // Filter agents belonging to the team lead's team
+          const filteredAgents = allUsers.filter(
+            (u) => 
+              u.role === "AGENT" && 
+              (Number(u.team_id) === Number(teamId) || Number(u.team) === Number(teamId))
           );
-          setAgents(filtered);
-          setFormData((prev) => ({
-            ...prev,
-            team: String(teamId || ""),
-          }));
+          
+          console.log("Filtered agents:", filteredAgents);
+          setAgents(filteredAgents);
+          
+          // Auto-select team for team lead
+          if (teamId) {
+            setFormData((prev) => ({
+              ...prev,
+              team: String(teamId),
+            }));
+          }
+          
+          if (filteredAgents.length === 0) {
+            console.warn("No agents found for team lead's team");
+            showToast("No agents found in your team. Please contact admin.", "warning");
+          }
         } else if (user.role === "AGENT") {
           // For agents, only show themselves
           const currentAgent = allUsers.filter((u) => u.id === user.id);
@@ -142,10 +163,12 @@ const CreateTicketModal: React.FC<Props> = ({
             }));
           }
         } else {
+          // For ADMIN, show all agents
           setAgents(allUsers.filter((u) => u.role === "AGENT"));
         }
       } catch (err) {
         console.error("Error loading data:", err);
+        showToast("Failed to load data. Please refresh the page.", "error");
       }
     };
 
@@ -194,7 +217,7 @@ const CreateTicketModal: React.FC<Props> = ({
         customer_name: formData.customer_name,
         customer_email: formData.customer_email,
         customer_phone: formData.customer_phone || "Not Provided",
-        assigned_by: user.id, // Track who created/assigned the ticket
+        assigned_by: user.id,
       };
 
       // Handle assignment based on user role
@@ -214,21 +237,20 @@ const CreateTicketModal: React.FC<Props> = ({
           }
           payload.team = parseInt(formData.team);
         }
-      }
-
-      if (user.role === "TEAM_LEAD") {
+      } else if (user.role === "TEAM_LEAD") {
         if (!formData.assigned_to) {
-          showToast("Please select an agent", "error");
+          showToast("Please select an agent from your team", "error");
           setLoading(false);
           return;
         }
         payload.assigned_to = parseInt(formData.assigned_to);
-        payload.team = user.team_id || user.team;
-      }
-
-      // For AGENT role - auto-assign to themselves (same logic as AssignTicketForm)
-      if (user.role === "AGENT" || "Agent") {
-        
+        // Team lead's team is automatically set
+        const teamId = user.team_id || user.team;
+        if (teamId) {
+          payload.team = parseInt(String(teamId));
+        }
+      } else if (user.role === "AGENT") {
+        // For AGENT role - auto-assign to themselves
         payload.assigned_to = user.id;
         // If agent has a team, also assign to that team
         if (user.team_id || user.team) {
@@ -397,12 +419,38 @@ const CreateTicketModal: React.FC<Props> = ({
               </div>
             )}
 
-            {/* AGENT SELECT (for Admin and Team Lead) */}
-            {(user.role === "TEAM_LEAD" || (user.role === "ADMIN" && mode === "agent")) && (
+            {/* For Team Lead - Show agent selection directly */}
+            {user.role === "TEAM_LEAD" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {user.role === "TEAM_LEAD" ? "Select Agent from Your Team" : "Select Agent"}
+                  Select Agent from Your Team
                 </label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  name="assigned_to"
+                  value={formData.assigned_to}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">-- Select an agent from your team --</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      👤 {getUserDisplayName(agent)} - {agent.email}
+                    </option>
+                  ))}
+                </select>
+                {agents.length === 0 && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                    ⚠ No agents found in your team. Please contact admin.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Agent Selection for Admin */}
+            {user.role === "ADMIN" && mode === "agent" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Agent</label>
                 <select
                   className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   name="assigned_to"
@@ -422,7 +470,7 @@ const CreateTicketModal: React.FC<Props> = ({
               </div>
             )}
 
-            {/* TEAM SELECT (ADMIN ONLY) */}
+            {/* Team Selection for Admin */}
             {user.role === "ADMIN" && mode === "team" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
@@ -445,7 +493,7 @@ const CreateTicketModal: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Info for Agent - Same logic as AssignTicketForm */}
+            {/* Info for Agent */}
             {user.role === "AGENT" && (
               <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                 <p className="text-sm text-blue-700 flex items-center gap-2">
@@ -453,6 +501,18 @@ const CreateTicketModal: React.FC<Props> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   This ticket will be automatically assigned to you upon creation.
+                </p>
+              </div>
+            )}
+
+            {/* Team Lead Info */}
+            {user.role === "TEAM_LEAD" && (
+              <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                <p className="text-sm text-purple-700 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Tickets created by you will be assigned to your team and the selected agent.
                 </p>
               </div>
             )}
@@ -468,7 +528,7 @@ const CreateTicketModal: React.FC<Props> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || (user.role === "TEAM_LEAD" && !formData.assigned_to)}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (

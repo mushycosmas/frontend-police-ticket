@@ -36,6 +36,11 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
     setLoadingData(true);
     setError(null);
     try {
+      console.log("Loading data for user:", user);
+      console.log("User role:", user.role);
+      console.log("User team_id:", user.team_id);
+      console.log("User team:", user.team);
+
       // Load users
       const usersRes = await getUsers();
       let usersData = [];
@@ -46,21 +51,40 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
       } else {
         usersData = [];
       }
-      
+
+      console.log("All users loaded:", usersData.length);
+
       let agents = [];
-      
+
       // Filter agents based on user role
       if (user.role === "TEAM_LEAD") {
         // Team Lead can only see agents from their team
         const teamId = user.team_id || user.team;
+        console.log("Team Lead - Looking for agents in team ID:", teamId);
+        
         agents = usersData.filter(
-          (u: any) => u.role === "AGENT" && Number(u.team_id) === Number(teamId)
+          (u: any) => 
+            u.role === "AGENT" && 
+            (Number(u.team_id) === Number(teamId) || Number(u.team) === Number(teamId))
         );
+        
+        console.log("Filtered agents for Team Lead:", agents.length);
+        console.log("Agents:", agents);
+        
+        // Auto-select the first agent if available
+        if (agents.length > 0 && !selectedAgent) {
+          setSelectedAgent(agents[0].id.toString());
+        }
       } else if (user.role === "ADMIN") {
         // Admin can see all agents
         agents = usersData.filter((u: any) => u.role === "AGENT");
-      } else {
-        agents = [];
+        console.log("Admin - All agents:", agents.length);
+      } else if (user.role === "AGENT") {
+        // Agent can see themselves
+        agents = usersData.filter((u: any) => u.id === user.id);
+        if (agents.length > 0 && !selectedAgent) {
+          setSelectedAgent(agents[0].id.toString());
+        }
       }
       
       setAllUsers(agents);
@@ -77,6 +101,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           teamsData = [];
         }
         setTeams(teamsData);
+        console.log("Teams loaded:", teamsData.length);
       }
     } catch (error: any) {
       console.error("Failed to load data:", error);
@@ -114,7 +139,6 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
         showToast(`✓ Ticket assigned to ${assignedTo} team successfully!`, "success");
       }
       
-      // Delay closing to show toast
       setTimeout(() => {
         if (onSuccess) onSuccess();
         if (onClose) onClose();
@@ -166,7 +190,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           </div>
         )}
         
-        {/* Assign Type Selection - Team Leads can only assign to agents */}
+        {/* Assign Type Selection - Admin only */}
         {(user.role === "ADMIN") && (
           <div className="flex gap-4 p-3 bg-gray-50 rounded-lg">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -192,12 +216,10 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           </div>
         )}
 
-        {/* For Team Lead, show agent selection directly */}
+        {/* For Team Lead - Show agent selection directly */}
         {user.role === "TEAM_LEAD" && (
-          <div className="animate-fade-in">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Agent from Your Team
-            </label>
+          <div className="bg-blue-50 rounded-lg p-3 mb-2">
+            <p className="text-sm text-blue-700 mb-2">📋 Your Team Agents</p>
             <select
               value={selectedAgent}
               onChange={(e) => setSelectedAgent(e.target.value)}
@@ -205,15 +227,15 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
               required
             >
               <option value="">-- Select an agent from your team --</option>
-              {allUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  👤 {user.full_name || user.username} - {user.email}
+              {allUsers.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  👤 {agent.full_name || agent.username} - {agent.email}
                 </option>
               ))}
             </select>
             {allUsers.length === 0 && (
-              <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
-                ⚠ No agents in your team. Please contact admin.
+              <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
+                ⚠ No agents found in your team. Please contact admin.
               </p>
             )}
           </div>
@@ -221,7 +243,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
 
         {/* Agent Selection for Admin */}
         {user.role === "ADMIN" && assignType === "agent" && (
-          <div className="animate-fade-in">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Agent
             </label>
@@ -232,23 +254,21 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
               required
             >
               <option value="">-- Select an agent --</option>
-              {allUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  👤 {user.full_name || user.username} - {user.email}
+              {allUsers.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  👤 {agent.full_name || agent.username} - {agent.email}
                 </option>
               ))}
             </select>
             {allUsers.length === 0 && (
-              <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
-                ⚠ No agents available. Please add agents first.
-              </p>
+              <p className="text-sm text-yellow-600 mt-1">No agents available</p>
             )}
           </div>
         )}
 
         {/* Team Selection for Admin */}
         {user.role === "ADMIN" && assignType === "team" && (
-          <div className="animate-fade-in">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Team
             </label>
@@ -266,9 +286,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
               ))}
             </select>
             {teams.length === 0 && (
-              <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
-                ⚠ No teams available. Please create a team first.
-              </p>
+              <p className="text-sm text-yellow-600 mt-1">No teams available</p>
             )}
           </div>
         )}
