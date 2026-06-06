@@ -1,97 +1,102 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  getTickets, 
-  deleteTicket, 
-  resolveTicket, 
+
+import {
+  getTickets,
+  getMyTickets,
+  getAssignedTickets,
+  getUnassignedTickets,
+  getClosedTickets,
+  deleteTicket,
+  resolveTicket,
   closeTicket,
   createTicket,
   updateTicket,
-  getTicket,
+  getTicket as apiGetTicket,
 } from '../../api/ticketApi';
-import { 
-  Ticket, 
-  TicketStatus, 
-  TicketPriority, 
-  CreateTicketData, 
-  UpdateTicketData 
+
+import {
+  Ticket,
+  TicketStatus,
+  TicketPriority,
+  CreateTicketData,
+  UpdateTicketData,
 } from '../../types/tickets/tickets.types';
 
 const PAGE_SIZE = 15;
 
-interface UseTicketsOptions {
+type FilterType = 'all' | 'my' | 'assigned' | 'unassigned' | 'closed';
+
+type UseTicketsOptions = {
   initialPage?: number;
   initialPageSize?: number;
   autoLoad?: boolean;
-}
+  initialFilter?: FilterType;
+};
 
-interface UseTicketsReturn {
-  tickets: Ticket[];
-  allTickets: Ticket[];
-  loading: boolean;
-  error: string | null;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  totalItems: number;
-  setPage: (page: number) => void;
-  setPageSize: (size: number) => void;
-  search: string;
-  filterStatus: TicketStatus | '';
-  filterPriority: TicketPriority | '';
-  setSearch: (search: string) => void;
-  setFilterStatus: (status: TicketStatus | '') => void;
-  setFilterPriority: (priority: TicketPriority | '') => void;
-  clearFilters: () => void;
-  hasFilters: boolean;
-  loadTickets: () => Promise<void>;
-  refresh: () => Promise<void>;
-  handleDelete: (id: number) => Promise<boolean>;
-  handleResolve: (id: number, comment?: string) => Promise<boolean>;  // ✅ FIXED: Added comment parameter
-  handleClose: (id: number, comment?: string) => Promise<boolean>;     // ✅ FIXED: Added comment parameter
-  handleCreate: (data: CreateTicketData) => Promise<Ticket | null>;
-  handleUpdate: (id: number, data: UpdateTicketData) => Promise<Ticket | null>;
-  getTicket: (id: number) => Promise<Ticket | null>;
-  isDeleting: boolean;
-  isResolving: boolean;
-  isClosing: boolean;
-  isCreating: boolean;
-  isUpdating: boolean;
-}
-
-export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn => {
+export const useTickets = (options: UseTicketsOptions = {}) => {
   const {
     initialPage = 1,
     initialPageSize = PAGE_SIZE,
     autoLoad = true,
+    initialFilter = 'all',
   } = options;
 
+  // ======================
+  // STATE
+  // ======================
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState<number>(initialPage);
-  const [pageSize, setPageSize] = useState<number>(initialPageSize);
-  const [search, setSearch] = useState<string>('');
+
+  const [page, setPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+
+  const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<TicketStatus | ''>('');
   const [filterPriority, setFilterPriority] = useState<TicketPriority | ''>('');
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
-  const [isResolving, setIsResolving] = useState<boolean>(false);
-  const [isClosing, setIsClosing] = useState<boolean>(false);
-  const [isCreating, setIsCreating] = useState<boolean>(false);
-  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [currentFilter, setCurrentFilter] = useState<FilterType>(initialFilter);
 
-  // Load tickets from API
-  const loadTickets = useCallback(async (): Promise<void> => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // ======================
+  // LOAD TICKETS
+  // ======================
+  const loadTickets = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const response = await getTickets();
-      const data = Array.isArray(response.data) 
-        ? response.data 
-        : response.data?.results || [];
+      let response;
       
-      // Map the API response to Ticket type
-      const mappedData: Ticket[] = data.map((item: any) => ({
+      // Choose which API endpoint to call based on currentFilter
+      switch (currentFilter) {
+        case 'my':
+          response = await getMyTickets();
+          break;
+        case 'assigned':
+          response = await getAssignedTickets();
+          break;
+        case 'unassigned':
+          response = await getUnassignedTickets();
+          break;
+        case 'closed':
+          response = await getClosedTickets();
+          break;
+        case 'all':
+        default:
+          response = await getTickets();
+          break;
+      }
+
+      const raw = Array.isArray(response.data)
+        ? response.data
+        : response.data?.results || [];
+
+      const mapped: Ticket[] = raw.map((item: any) => ({
         id: item.id,
         ticket_number: item.ticket_number,
         title: item.title,
@@ -102,220 +107,252 @@ export const useTickets = (options: UseTicketsOptions = {}): UseTicketsReturn =>
         created_at: item.created_at,
         updated_at: item.updated_at,
         resolved_at: item.resolved_at,
-        customer_name: item.customer_detail?.customer_name || 'Unknown',
-        customer_phone: item.customer_detail?.customer_phone || 'Not Provided',
-        customer_email: item.customer_detail?.customer_email || 'Not Provided',
-        customer: item.customer_detail ? {
-          id: item.customer_detail.id,
-          customer_name: item.customer_detail.customer_name,
-          customer_email: item.customer_detail.customer_email,
-          customer_phone: item.customer_detail.customer_phone,
-          alternate_phone: item.customer_detail.alternate_phone,
-          company_name: item.customer_detail.company_name,
-          address: item.customer_detail.address,
-          city: item.customer_detail.city,
-          country: item.customer_detail.country,
-        } : undefined,
+
+        customer_name: item.customer_detail?.customer_name || item.customer_name || 'Unknown',
+        customer_phone: item.customer_detail?.customer_phone || item.customer_phone || 'Not Provided',
+        customer_email: item.customer_detail?.customer_email || item.customer_email || 'Not Provided',
+
+        customer: item.customer_detail
+          ? {
+              id: item.customer_detail.id,
+              customer_name: item.customer_detail.customer_name,
+              customer_email: item.customer_detail.customer_email,
+              customer_phone: item.customer_detail.customer_phone,
+              alternate_phone: item.customer_detail.alternate_phone,
+              company_name: item.customer_detail.company_name,
+              address: item.customer_detail.address,
+              city: item.customer_detail.city,
+              country: item.customer_detail.country,
+            }
+          : undefined,
+
         assigned_to: item.assigned_to,
         assigned_to_name: item.assigned_to_name,
-        assigned_by: item.assigned_by,
         team: item.team,
         team_name: item.team_name,
-        street: item.street,
-        street_name: item.street_name,
-        location_full: item.location_full,
+
         attachments: item.attachments || [],
         history: item.timeline,
         updates: item.timeline,
       }));
-      
-      setTickets(mappedData);
+
+      setTickets(mapped);
     } catch (err: any) {
-      console.error('Failed to load tickets:', err);
-      setError(err.response?.data?.message || 'Failed to load tickets');
+      setError(err?.response?.data?.message || 'Failed to load tickets');
+      console.error('Error loading tickets:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentFilter]);
 
-  // Filter and search tickets
-  const filteredTickets = useMemo((): Ticket[] => {
+  // ======================
+  // FILTERED DATA
+  // ======================
+  const filteredTickets = useMemo(() => {
     let data = [...tickets];
 
-    if (search.trim()) {
-      const query = search.toLowerCase();
-      data = data.filter(
-        (ticket) =>
-          ticket.title?.toLowerCase().includes(query) ||
-          ticket.customer_name?.toLowerCase().includes(query) ||
-          ticket.ticket_number?.toLowerCase().includes(query) ||
-          String(ticket.id).includes(query)
-      );
-    }
+    // Only apply search, status, and priority filters when currentFilter is 'all'
+    if (currentFilter === 'all') {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        data = data.filter(
+          t =>
+            t.title?.toLowerCase().includes(q) ||
+            t.customer_name?.toLowerCase().includes(q) ||
+            t.ticket_number?.toLowerCase().includes(q) ||
+            t.customer_email?.toLowerCase().includes(q) ||
+            t.customer_phone?.toLowerCase().includes(q) ||
+            String(t.id).includes(q)
+        );
+      }
 
-    if (filterStatus) {
-      data = data.filter((ticket) => ticket.status === filterStatus);
-    }
+      if (filterStatus) {
+        data = data.filter(t => t.status === filterStatus);
+      }
 
-    if (filterPriority) {
-      data = data.filter((ticket) => ticket.priority === filterPriority);
+      if (filterPriority) {
+        data = data.filter(t => t.priority === filterPriority);
+      }
     }
 
     return data;
-  }, [tickets, search, filterStatus, filterPriority]);
+  }, [tickets, search, filterStatus, filterPriority, currentFilter]);
 
+  // ======================
+  // PAGINATION
+  // ======================
   const totalItems = filteredTickets.length;
   const totalPages = Math.ceil(totalItems / pageSize);
-  
-  const paginatedTickets = useMemo((): Ticket[] => {
+
+  const paginatedTickets = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredTickets.slice(start, start + pageSize);
   }, [filteredTickets, page, pageSize]);
 
-  useEffect((): void => {
+  // reset page when filters change
+  useEffect(() => {
     setPage(1);
-  }, [search, filterStatus, filterPriority, pageSize]);
+  }, [search, filterStatus, filterPriority, currentFilter, pageSize]);
 
-  useEffect((): void => {
-    if (autoLoad) {
-      loadTickets();
-    }
+  // auto load
+  useEffect(() => {
+    if (autoLoad) loadTickets();
   }, [autoLoad, loadTickets]);
 
-  const clearFilters = useCallback((): void => {
+  // ======================
+  // FILTER HELPERS
+  // ======================
+  const clearFilters = useCallback(() => {
     setSearch('');
     setFilterStatus('');
     setFilterPriority('');
+    setCurrentFilter('all');
     setPage(1);
   }, []);
 
-  const hasFilters = !!(search || filterStatus || filterPriority);
+  const hasFilters = useMemo(
+    () => !!(search || filterStatus || filterPriority || currentFilter !== 'all'),
+    [search, filterStatus, filterPriority, currentFilter]
+  );
 
-  const handleDelete = useCallback(async (id: number): Promise<boolean> => {
+  // ======================
+  // ACTIONS
+  // ======================
+  const handleDelete = useCallback(async (id: number) => {
     setIsDeleting(true);
     setError(null);
+
     try {
       await deleteTicket(id);
       await loadTickets();
       return true;
     } catch (err: any) {
-      console.error('Delete failed:', err);
-      setError(err.response?.data?.message || 'Failed to delete ticket');
+      setError(err?.response?.data?.message || 'Delete failed');
       return false;
     } finally {
       setIsDeleting(false);
     }
   }, [loadTickets]);
 
-  // Resolve ticket with optional comment
-  const handleResolve = useCallback(async (id: number, comment?: string): Promise<boolean> => {
+  const handleResolve = useCallback(async (id: number, comment?: string) => {
     setIsResolving(true);
     setError(null);
+
     try {
       await resolveTicket(id, comment);
       await loadTickets();
       return true;
     } catch (err: any) {
-      console.error('Resolve failed:', err);
-      setError(err.response?.data?.message || 'Failed to resolve ticket');
+      setError(err?.response?.data?.message || 'Resolve failed');
       return false;
     } finally {
       setIsResolving(false);
     }
   }, [loadTickets]);
 
-  // Close ticket with optional comment
-  const handleClose = useCallback(async (id: number, comment?: string): Promise<boolean> => {
+  const handleClose = useCallback(async (id: number, comment?: string) => {
     setIsClosing(true);
     setError(null);
+
     try {
       await closeTicket(id, comment);
       await loadTickets();
       return true;
     } catch (err: any) {
-      console.error('Close failed:', err);
-      setError(err.response?.data?.message || 'Failed to close ticket');
+      setError(err?.response?.data?.message || 'Close failed');
       return false;
     } finally {
       setIsClosing(false);
     }
   }, [loadTickets]);
 
-  const handleCreate = useCallback(async (data: CreateTicketData): Promise<Ticket | null> => {
+  const handleCreate = useCallback(async (data: CreateTicketData) => {
     setIsCreating(true);
     setError(null);
+
     try {
-      const response = await createTicket(data);
+      const res = await createTicket(data);
       await loadTickets();
-      return response.data;
+      return res.data;
     } catch (err: any) {
-      console.error('Create failed:', err);
-      setError(err.response?.data?.message || 'Failed to create ticket');
+      setError(err?.response?.data?.message || 'Create failed');
       return null;
     } finally {
       setIsCreating(false);
     }
   }, [loadTickets]);
 
-  const handleUpdate = useCallback(async (id: number, data: UpdateTicketData): Promise<Ticket | null> => {
+  const handleUpdate = useCallback(async (id: number, data: UpdateTicketData) => {
     setIsUpdating(true);
     setError(null);
+
     try {
-      const response = await updateTicket(id, data);
+      const res = await updateTicket(id, data);
       await loadTickets();
-      return response.data;
+      return res.data;
     } catch (err: any) {
-      console.error('Update failed:', err);
-      setError(err.response?.data?.message || 'Failed to update ticket');
+      setError(err?.response?.data?.message || 'Update failed');
       return null;
     } finally {
       setIsUpdating(false);
     }
   }, [loadTickets]);
 
-  const getTicketById = useCallback(async (id: number): Promise<Ticket | null> => {
-    setError(null);
+  const getTicketById = useCallback(async (id: number) => {
     try {
-      const response = await getTicket(id);
-      return response.data;
-    } catch (err: any) {
-      console.error('Get ticket failed:', err);
-      setError(err.response?.data?.message || 'Failed to load ticket details');
+      const res = await apiGetTicket(id);
+      return res.data;
+    } catch {
       return null;
     }
   }, []);
 
-  const refresh = useCallback(async (): Promise<void> => {
+  const refresh = useCallback(async () => {
     await loadTickets();
   }, [loadTickets]);
 
+  // ======================
+  // RETURN
+  // ======================
   return {
     tickets: paginatedTickets,
     allTickets: filteredTickets,
+
     loading,
     error,
+
     page,
     pageSize,
     totalPages,
     totalItems,
+
     setPage,
     setPageSize,
+
     search,
     filterStatus,
     filterPriority,
+    currentFilter,
+
     setSearch,
     setFilterStatus,
     setFilterPriority,
+    setCurrentFilter,
+
     clearFilters,
     hasFilters,
+
     loadTickets,
     refresh,
+
     handleDelete,
     handleResolve,
     handleClose,
     handleCreate,
     handleUpdate,
+
     getTicket: getTicketById,
+
     isDeleting,
     isResolving,
     isClosing,

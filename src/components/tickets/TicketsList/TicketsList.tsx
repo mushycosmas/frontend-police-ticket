@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+
 import { useTickets } from '../../../hooks/tickets/useTickets';
 import { TicketsHeader } from './components/TicketsHeader';
 import { TicketsFilters } from './components/TicketsFilters';
@@ -6,6 +8,7 @@ import { TicketsTable } from './components/TicketsTable';
 import { TicketsPagination } from './components/TicketsPagination';
 import { TicketsLoading } from './components/TicketsLoading';
 import { TicketsEmpty } from './components/TicketsEmpty';
+
 import { Ticket } from '../../../types/tickets/tickets.types';
 
 import CreateTicketModal from '../CreateTicketModal';
@@ -15,6 +18,15 @@ import { CommentModal } from './components/CommentModal';
 import { Toast } from '../../common/Toast';
 
 export const TicketsList: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // ✅ GET STATUS FROM URL (/tickets/my -> my)
+  const status = useMemo(() => {
+    const parts = location.pathname.split('/');
+    return parts[2]; // /tickets/my
+  }, [location.pathname]);
+
   const {
     tickets,
     allTickets,
@@ -24,10 +36,12 @@ export const TicketsList: React.FC = () => {
     search,
     filterStatus,
     filterPriority,
+    currentFilter,
     setPage,
     setSearch,
     setFilterStatus,
     setFilterPriority,
+    setCurrentFilter,
     handleDelete,
     handleResolve,
     handleClose,
@@ -38,7 +52,68 @@ export const TicketsList: React.FC = () => {
   } = useTickets();
 
   // ======================
-  // MODALS STATE
+  // ROUTE → FILTER SYNC
+  // ======================
+  useEffect(() => {
+    const normalized = (status || '').toLowerCase();
+
+    // Handle special filters (use dedicated API endpoints)
+    if (normalized === 'my') {
+      setCurrentFilter('my');
+      setFilterStatus('');
+      setFilterPriority('');
+      setSearch('');
+    } 
+    else if (normalized === 'assigned') {
+      setCurrentFilter('assigned');
+      setFilterStatus('');
+      setFilterPriority('');
+      setSearch('');
+    }
+    else if (normalized === 'unassigned') {
+      setCurrentFilter('unassigned');
+      setFilterStatus('');
+      setFilterPriority('');
+      setSearch('');
+    }
+    else if (normalized === 'closed') {
+      setCurrentFilter('closed');
+      setFilterStatus('');
+      setFilterPriority('');
+      setSearch('');
+    }
+    else {
+      setCurrentFilter('all');
+      
+      // Handle status filters (client-side filtering)
+      if (normalized && normalized !== 'tickets' && normalized !== 'all' && normalized !== '') {
+        const statusMap: Record<string, string> = {
+          'open': 'OPEN',
+          'in-progress': 'IN_PROGRESS',
+          'resolved': 'RESOLVED',
+          'closed': 'CLOSED',
+          'escalated': 'ESCALATED',
+          'reopened': 'REOPENED'
+        };
+        
+        const mappedStatus = statusMap[normalized];
+        if (mappedStatus) {
+          setFilterStatus(mappedStatus as any);
+        } else {
+          setFilterStatus('');
+        }
+      } else {
+        setFilterStatus('');
+      }
+      
+      // Reset priority and search when route changes
+      setFilterPriority('');
+      setSearch('');
+    }
+  }, [status, setCurrentFilter, setFilterStatus, setFilterPriority, setSearch]);
+
+  // ======================
+  // STATE
   // ======================
   const [showCreate, setShowCreate] = useState(false);
   const [showView, setShowView] = useState(false);
@@ -59,126 +134,138 @@ export const TicketsList: React.FC = () => {
     type: 'success' | 'error' | 'info' | 'warning';
   } | null>(null);
 
-  const showToast = (message: string, type: any) => {
+  // ======================
+  // TOAST
+  // ======================
+  const showToast = useCallback((message: string, type: any) => {
     setToast({ message, type });
-  };
+    setTimeout(() => setToast(null), 4000);
+  }, []);
 
   // ======================
   // VIEW
   // ======================
-  const handleView = (ticket: Ticket) => {
+  const handleView = useCallback((ticket: Ticket) => {
     setSelectedTicket(ticket);
     setShowView(true);
-  };
+  }, []);
 
   // ======================
   // DELETE
   // ======================
-  const handleDeleteClick = (id: number, ticketNumber: string) => {
+  const handleDeleteClick = useCallback((id: number, ticketNumber: string) => {
     setDeleteId(id);
     setDeleteTicketNumber(ticketNumber);
     setShowDelete(true);
-  };
+  }, []);
 
-  const confirmDelete = async () => {
+  const confirmDelete = useCallback(async () => {
     if (!deleteId) return;
 
     const success = await handleDelete(deleteId);
 
-    if (success) {
-      showToast(`✅ Ticket ${deleteTicketNumber} deleted`, 'success');
-    } else {
-      showToast(`❌ Failed to delete ticket`, 'error');
-    }
+    showToast(
+      success
+        ? `✅ Ticket ${deleteTicketNumber} deleted successfully`
+        : `❌ Failed to delete ticket ${deleteTicketNumber}`,
+      success ? 'success' : 'error'
+    );
 
     setShowDelete(false);
     setDeleteId(null);
     setDeleteTicketNumber('');
-  };
+  }, [deleteId, deleteTicketNumber, handleDelete, showToast]);
 
   // ======================
   // RESOLVE
   // ======================
-  const handleResolveClick = (id: number, ticketNumber: string) => {
+  const handleResolveClick = useCallback((id: number, ticketNumber: string) => {
     setActionTicketId(id);
     setActionTicketNumber(ticketNumber);
     setShowResolveModal(true);
-  };
+  }, []);
 
-  const confirmResolve = async (comment: string) => {
+  const confirmResolve = useCallback(async (comment: string) => {
     if (!actionTicketId) return;
 
-    const trimmedComment = comment?.trim() || '';
+    const success = await handleResolve(actionTicketId, comment);
 
-    console.log("RESOLVE CLICK:", {
-      id: actionTicketId,
-      comment: trimmedComment
-    });
-
-    const success = await handleResolve(actionTicketId, trimmedComment);
-
-    if (success) {
-      showToast(
-        trimmedComment
-          ? `✅ Ticket ${actionTicketNumber} resolved with comment`
-          : `✅ Ticket ${actionTicketNumber} resolved`,
-        'success'
-      );
-    } else {
-      showToast(`❌ Failed to resolve ticket`, 'error');
-    }
+    showToast(
+      success
+        ? `✅ Ticket ${actionTicketNumber} resolved successfully`
+        : `❌ Failed to resolve ticket ${actionTicketNumber}`,
+      success ? 'success' : 'error'
+    );
 
     setShowResolveModal(false);
     setActionTicketId(null);
     setActionTicketNumber('');
-  };
+  }, [actionTicketId, actionTicketNumber, handleResolve, showToast]);
 
   // ======================
   // CLOSE
   // ======================
-  const handleCloseClick = (id: number, ticketNumber: string) => {
+  const handleCloseClick = useCallback((id: number, ticketNumber: string) => {
     setActionTicketId(id);
     setActionTicketNumber(ticketNumber);
     setShowCloseModal(true);
-  };
+  }, []);
 
-  const confirmClose = async (comment: string) => {
+  const confirmClose = useCallback(async (comment: string) => {
     if (!actionTicketId) return;
 
-    const trimmedComment = comment?.trim() || '';
+    const success = await handleClose(actionTicketId, comment);
 
-    console.log("CLOSE CLICK:", {
-      id: actionTicketId,
-      comment: trimmedComment
-    });
-
-    const success = await handleClose(actionTicketId, trimmedComment);
-
-    if (success) {
-      showToast(
-        trimmedComment
-          ? ` Ticket ${actionTicketNumber} closed with comment`
-          : ` Ticket ${actionTicketNumber} closed`,
-        'success'
-      );
-    } else {
-      showToast(`❌ Failed to close ticket`, 'error');
-    }
+    showToast(
+      success
+        ? `✅ Ticket ${actionTicketNumber} closed successfully`
+        : `❌ Failed to close ticket ${actionTicketNumber}`,
+      success ? 'success' : 'error'
+    );
 
     setShowCloseModal(false);
     setActionTicketId(null);
     setActionTicketNumber('');
-  };
+  }, [actionTicketId, actionTicketNumber, handleClose, showToast]);
 
-  const clearFilters = () => {
+  // ======================
+  // FILTERS
+  // ======================
+  const clearFilters = useCallback(() => {
     setSearch('');
     setFilterStatus('');
     setFilterPriority('');
-  };
+    setCurrentFilter('all');
+    navigate('/tickets');
+  }, [setSearch, setFilterStatus, setFilterPriority, setCurrentFilter, navigate]);
 
-  const hasFilters = !!(search || filterStatus || filterPriority);
+  const hasFilters = useMemo(
+    () => !!(search || filterStatus || filterPriority || currentFilter !== 'all'),
+    [search, filterStatus, filterPriority, currentFilter]
+  );
 
-  if (loading) return <TicketsLoading />;
+  // Get filter label for header
+  const getFilterLabel = useMemo(() => {
+    if (currentFilter === 'my') return 'My Tickets';
+    if (currentFilter === 'assigned') return 'Assigned to Me';
+    if (currentFilter === 'unassigned') return 'Unassigned Tickets';
+    if (currentFilter === 'closed') return 'Closed Tickets';
+    if (filterStatus) return `${filterStatus.replace('_', ' ')} Tickets`;
+    return 'All Tickets';
+  }, [currentFilter, filterStatus]);
+
+  // Get display count
+  const displayCount = useMemo(() => {
+    if (hasFilters) return tickets.length;
+    return allTickets.length;
+  }, [hasFilters, tickets.length, allTickets.length]);
+
+  // ======================
+  // LOADING
+  // ======================
+  if (loading && tickets.length === 0) {
+    return <TicketsLoading />;
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -193,25 +280,62 @@ export const TicketsList: React.FC = () => {
       )}
 
       {/* HEADER */}
-      <TicketsHeader
-        totalCount={allTickets.length}
-        onCreateClick={() => setShowCreate(true)}
-      />
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-800">
+            {getFilterLabel}
+          </h2>
+          <p className="text-sm text-gray-500">
+            {displayCount} ticket{displayCount !== 1 ? 's' : ''}
+            {currentFilter === 'unassigned' && ' (no agent assigned)'}
+            {currentFilter === 'assigned' && ' (assigned to you)'}
+            {currentFilter === 'my' && ' (assigned to you)'}
+          </p>
+        </div>
 
-      {/* FILTERS */}
-      <TicketsFilters
-        search={search}
-        filterStatus={filterStatus}
-        filterPriority={filterPriority}
-        onSearchChange={setSearch}
-        onStatusChange={setFilterStatus}
-        onPriorityChange={setFilterPriority}
-      />
+        <button
+          onClick={() => setShowCreate(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+        >
+          ✚ New Ticket
+        </button>
+      </div>
+
+      {/* FILTERS - Only show for 'all' filter */}
+      {currentFilter === 'all' && (
+        <TicketsFilters
+          search={search}
+          filterStatus={filterStatus}
+          filterPriority={filterPriority}
+          onSearchChange={setSearch}
+          onStatusChange={setFilterStatus}
+          onPriorityChange={setFilterPriority}
+          onClearFilters={clearFilters}
+          hasFilters={hasFilters}
+        />
+      )}
+
+      {/* Info banner for special filters */}
+      {currentFilter !== 'all' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-700">
+          Showing {getFilterLabel.toLowerCase()}
+          <button
+            onClick={clearFilters}
+            className="ml-3 text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            View all tickets
+          </button>
+        </div>
+      )}
 
       {/* TABLE */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
+
         {tickets.length === 0 ? (
-          <TicketsEmpty hasFilters={hasFilters} onClearFilters={clearFilters} />
+          <TicketsEmpty
+            hasFilters={hasFilters}
+            onClearFilters={clearFilters}
+          />
         ) : (
           <>
             <TicketsTable
@@ -225,23 +349,24 @@ export const TicketsList: React.FC = () => {
               isClosing={isClosing}
             />
 
-            <TicketsPagination
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-            />
+            {totalPages > 1 && (
+              <TicketsPagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            )}
           </>
         )}
       </div>
 
-      {/* CREATE */}
+      {/* MODALS */}
       <CreateTicketModal
         show={showCreate}
         onHide={() => setShowCreate(false)}
         onSuccess={refresh}
       />
 
-      {/* VIEW */}
       <TicketViewModal
         show={showView}
         ticket={selectedTicket}
@@ -252,31 +377,31 @@ export const TicketsList: React.FC = () => {
         onRefresh={refresh}
       />
 
-      {/* DELETE */}
       <ConfirmModal
         show={showDelete}
         title="Delete Ticket"
-        message={`Delete ${deleteTicketNumber}?`}
+        message={`Are you sure you want to delete ticket ${deleteTicketNumber}?`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
         onHide={() => setShowDelete(false)}
         onConfirm={confirmDelete}
       />
 
-      {/* RESOLVE COMMENT */}
       <CommentModal
         show={showResolveModal}
         title="Resolve Ticket"
-        message={`Add resolution comment for ${actionTicketNumber}`}
+        message={`Please provide a resolution comment for ticket ${actionTicketNumber}`}
         actionType="resolve"
         onHide={() => setShowResolveModal(false)}
         onConfirm={confirmResolve}
         loading={isResolving}
       />
 
-      {/* CLOSE COMMENT */}
       <CommentModal
         show={showCloseModal}
         title="Close Ticket"
-        message={`Add closing comment for ${actionTicketNumber}`}
+        message={`Please provide a closing comment for ticket ${actionTicketNumber}`}
         actionType="close"
         onHide={() => setShowCloseModal(false)}
         onConfirm={confirmClose}
