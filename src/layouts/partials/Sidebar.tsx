@@ -33,7 +33,6 @@ const menuGroups: MenuGroup[] = [
     roles: ["ADMIN", "MANAGER", "TEAM_LEAD", "AGENT", "QA_ANALYST"],
     children: [
       { to: "/tickets", label: "All Tickets" },
-      { to: "/tickets/create", label: "Create Ticket" },
       { to: "/tickets/my", label: "My Tickets" },
       { to: "/tickets/assigned", label: "Assigned Tickets" },
       { to: "/tickets/unassigned", label: "Unassigned Tickets" },
