@@ -43,6 +43,14 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    label: "Customers",
+    icon: "👥",
+    roles: ["ADMIN"], // Only ADMIN can view customers
+    children: [
+      { to: "/customers", label: "All Customers" },
+    ],
+  },
+  {
     label: "Reports",
     icon: "📈",
     roles: ["ADMIN", "MANAGER", "TEAM_LEAD"],
@@ -71,7 +79,7 @@ const menuGroups: MenuGroup[] = [
       { to: "/admin/locations/regions", label: "Regions" },
       { to: "/admin/locations/districts", label: "Districts" },
       { to: "/admin/locations/wards", label: "Wards" },
-      { to: "/admin/locations/streets", label: "Streets" }, // FIXED
+      { to: "/admin/locations/streets", label: "Streets" },
     ],
   },
   {
@@ -238,7 +246,7 @@ export const Sidebar: React.FC = () => {
 
         <div className="mb-3">
           <p className="text-white text-sm font-medium">
-            {user?.fullName ?? "User"}
+            {user?.fullName ?? user?.username ?? "User"}
           </p>
           <p className="text-blue-300 text-xs">
             {getRoleLabel(user?.role ?? "")}

@@ -15,6 +15,7 @@ import { PublicCreateTicket } from "../pages/PublicCreateTicket";
 
 import { Dashboard } from "../pages/Dashboard";
 import Tickets  from "../pages/Tickets";
+import { Customers}  from "../pages/customers/Customers";  // ← ADD THIS
 
 import { CreateTicket } from "../pages/CreateTicket";
 import { QAReview } from "../pages/QAReview";
@@ -106,6 +107,12 @@ const router = createBrowserRouter([
       {
         path: "/tickets/closed",
         element: <Tickets />,
+      },
+
+      /* Customers */
+      {
+        path: "/customers",
+        element: <Customers />,
       },
 
       /* QA */
