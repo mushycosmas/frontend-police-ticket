@@ -1,6 +1,6 @@
 import api from "./axios";
-
-export const loginUser = (data) => api.post("/auth/login/", data);
+import publicApi from "./publicApi";
+export const loginUser = (data) => publicApi.post("/auth/login/", data);
 export const getMe = () => api.get("/auth/me/");
 
 
