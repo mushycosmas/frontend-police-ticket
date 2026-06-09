@@ -17,15 +17,15 @@ export const createTicket = (data) =>
     });
 
 export const updateTicket = (id, data) =>
-    api.patch(`/tickets/tickets/${id}/`, data);
+    api.patch(`/tickets/tickets/tickets/${id}/`, data);
 
 export const deleteTicket = (id) =>
-    api.delete(`/tickets/tickets/${id}/`);
+    api.delete(`/tickets/tickets/tickets/${id}/`);
 
 
 // Update ticket priority - uses the update endpoint
 export const updateTicketPriority = (id, priority) =>
-  api.patch(`/tickets/${id}/`, { priority });
+  api.patch(`/tickets/tickets/${id}/`, { priority });
 // ----------------------
 // TICKET ACTIONS
 
@@ -40,6 +40,8 @@ export const closeTicket = (id, comment = '') =>
   api.post(`/tickets/tickets/${id}/close/`, {
     comment: comment?.trim() || null
   });
+
+ 
 
 export const assignTicket = (id, data) =>
     api.post(`/tickets/tickets/${id}/assign/`, data);
@@ -56,6 +58,10 @@ export const getUnassignedTickets = () =>
 
 export const getClosedTickets = () =>
     api.get("/tickets/tickets/?filter=closed");
+
+
+export const inprogressTickets = () =>
+    api.get("/tickets/tickets/?filter= in-progress");
 
 
 export const trackTickets = (ticket_number) => {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { updateTicketPriority } from "../../api/ticketApi";
 import { Toast } from "../common/Toast";
 
@@ -31,10 +31,30 @@ interface ToastMessage {
 }
 
 const PRIORITY_OPTIONS: PriorityOption[] = [
-  { value: "CRITICAL", label: "🔴 Critical", color: "bg-red-100 text-red-800 border-red-200", description: "Immediate attention required" },
-  { value: "HIGH", label: "🟠 High", color: "bg-orange-100 text-orange-800 border-orange-200", description: "Urgent, resolve quickly" },
-  { value: "MEDIUM", label: "🟡 Medium", color: "bg-yellow-100 text-yellow-800 border-yellow-200", description: "Normal priority" },
-  { value: "LOW", label: "🟢 Low", color: "bg-green-100 text-green-800 border-green-200", description: "Can wait, low impact" },
+  {
+    value: "CRITICAL",
+    label: "🔴 Critical",
+    color: "bg-red-100 text-red-800 border-red-200",
+    description: "Immediate attention required",
+  },
+  {
+    value: "HIGH",
+    label: "🟠 High",
+    color: "bg-orange-100 text-orange-800 border-orange-200",
+    description: "Urgent, resolve quickly",
+  },
+  {
+    value: "MEDIUM",
+    label: "🟡 Medium",
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    description: "Normal priority",
+  },
+  {
+    value: "LOW",
+    label: "🟢 Low",
+    color: "bg-green-100 text-green-800 border-green-200",
+    description: "Can wait, low impact",
+  },
 ];
 
 const UpdatePriorityModal: React.FC<UpdatePriorityModalProps> = ({
@@ -43,50 +63,72 @@ const UpdatePriorityModal: React.FC<UpdatePriorityModalProps> = ({
   onHide,
   onSuccess,
 }) => {
-  const [selectedPriority, setSelectedPriority] = useState<string>(ticket?.priority || "MEDIUM");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [selectedPriority, setSelectedPriority] = useState("MEDIUM");
+  const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  useEffect(() => {
+    if (ticket) {
+      setSelectedPriority(ticket.priority || "MEDIUM");
+    }
+  }, [ticket]);
 
   if (!show || !ticket) return null;
 
-  const showToast = (message: string, type: ToastMessage["type"]) => {
+  const showToast = (
+    message: string,
+    type: ToastMessage["type"]
+  ) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const getPriorityLabel = (priority: string): string => {
-    const option = PRIORITY_OPTIONS.find(p => p.value === priority);
-    return option?.label || priority;
+  const getPriorityLabel = (priority: string) => {
+    return (
+      PRIORITY_OPTIONS.find((p) => p.value === priority)?.label ||
+      priority
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (selectedPriority === ticket.priority) {
       showToast("No changes made to priority", "info");
       return;
     }
-    
+
     setLoading(true);
 
     try {
       await updateTicketPriority(ticket.id, selectedPriority);
-      showToast(`✓ Priority updated to ${getPriorityLabel(selectedPriority)}`, "success");
-      
+
+      showToast(
+        `Priority updated to ${getPriorityLabel(selectedPriority)}`,
+        "success"
+      );
+
       setTimeout(() => {
         onSuccess();
         onHide();
-      }, 1500);
+      }, 1200);
     } catch (error: any) {
-      console.error("Failed to update priority:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Failed to update priority";
-      showToast(`✗ ${errorMessage}`, "error");
+      console.error(error);
+
+      showToast(
+        error?.response?.data?.message ||
+          "Failed to update priority",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const currentPriorityOption = PRIORITY_OPTIONS.find(p => p.value === ticket.priority) || PRIORITY_OPTIONS[2];
+  const currentPriority =
+    PRIORITY_OPTIONS.find(
+      (p) => p.value === ticket.priority
+    ) || PRIORITY_OPTIONS[2];
 
   return (
     <>
@@ -98,65 +140,124 @@ const UpdatePriorityModal: React.FC<UpdatePriorityModalProps> = ({
         />
       )}
 
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onHide}>
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4"
+        onClick={onHide}
+      >
+        <div
+          className="
+            bg-white
+            rounded-xl
+            shadow-xl
+            w-full
+            max-w-md
+            lg:max-w-lg
+            max-h-[95vh]
+            flex
+            flex-col
+            overflow-hidden
+          "
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Header */}
-          <div className="p-6 border-b">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Update Priority</h2>
-              <button 
-                onClick={onHide} 
-                className="text-gray-400 hover:text-gray-600 transition-colors text-xl"
+          <div className="p-4 sm:p-6 border-b flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">
+                Update Priority
+              </h2>
+
+              <button
+                onClick={onHide}
+                className="text-gray-400 hover:text-gray-600 text-xl"
               >
                 ✕
               </button>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
+
+            <p className="text-sm text-gray-500 mt-1 break-all">
               Ticket #{ticket.ticket_number}
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit}>
-            <div className="p-6 space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col flex-1 min-h-0"
+          >
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
               {/* Current Priority */}
               <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-1">Current Priority</p>
-                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${currentPriorityOption.color}`}>
-                  {currentPriorityOption.label}
-                </div>
+                <p className="text-xs text-gray-500 mb-2">
+                  Current Priority
+                </p>
+
+                <span
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${currentPriority.color}`}
+                >
+                  {currentPriority.label}
+                </span>
               </div>
 
-              {/* New Priority Selection */}
+              {/* Priority Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select New Priority
                 </label>
-                <div className="space-y-2">
+
+                <div className="space-y-3">
                   {PRIORITY_OPTIONS.map((option) => (
                     <label
                       key={option.value}
-                      className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
-                        selectedPriority === option.value
-                          ? `${option.color} border-2`
-                          : "border-gray-200 hover:bg-gray-50"
-                      }`}
+                      className={`
+                        flex items-start gap-3
+                        p-3 sm:p-4
+                        border rounded-lg
+                        cursor-pointer
+                        transition-all
+                        ${
+                          selectedPriority === option.value
+                            ? `${option.color} border-2`
+                            : "border-gray-200 hover:bg-gray-50"
+                        }
+                      `}
                     >
                       <input
                         type="radio"
                         name="priority"
                         value={option.value}
-                        checked={selectedPriority === option.value}
-                        onChange={(e) => setSelectedPriority(e.target.value)}
-                        className="w-4 h-4 mt-0.5"
+                        checked={
+                          selectedPriority === option.value
+                        }
+                        onChange={(e) =>
+                          setSelectedPriority(e.target.value)
+                        }
+                        className="mt-1"
                       />
-                      <div className="flex-1">
-                        <div className="font-medium">{option.label}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{option.description}</div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm sm:text-base">
+                          {option.label}
+                        </div>
+
+                        <div className="text-xs text-gray-500 mt-1">
+                          {option.description}
+                        </div>
                       </div>
+
                       {selectedPriority === option.value && (
-                        <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        <svg
+                          className="w-5 h-5 text-green-500 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       )}
                     </label>
@@ -164,38 +265,93 @@ const UpdatePriorityModal: React.FC<UpdatePriorityModalProps> = ({
                 </div>
               </div>
 
-              {/* Ticket Preview */}
-              <div className="text-sm bg-gray-50 rounded-lg p-3">
-                <p className="font-medium text-gray-700 mb-1">Ticket Information:</p>
-                <p className="text-gray-600">{ticket.title}</p>
-                <p className="text-xs text-gray-400 mt-1">Status: {ticket.status}</p>
-                <p className="text-xs text-gray-400">Created: {new Date(ticket.created_at).toLocaleDateString()}</p>
+              {/* Ticket Info */}
+              <div className="bg-gray-50 rounded-lg p-3 sm:p-4 text-sm break-words">
+                <p className="font-medium text-gray-700 mb-2">
+                  Ticket Information
+                </p>
+
+                <p className="text-gray-600">
+                  {ticket.title}
+                </p>
+
+                <div className="mt-2 space-y-1 text-xs text-gray-500">
+                  <p>Status: {ticket.status}</p>
+                  <p>
+                    Created:{" "}
+                    {new Date(
+                      ticket.created_at
+                    ).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
+            {/* Footer */}
+            <div
+              className="
+                border-t
+                bg-gray-50
+                p-4 sm:p-6
+                flex-shrink-0
+                flex
+                flex-col-reverse
+                sm:flex-row
+                justify-end
+                gap-3
+              "
+            >
               <button
                 type="button"
                 onClick={onHide}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-100 transition-colors"
+                className="
+                  w-full sm:w-auto
+                  px-4 py-2
+                  border
+                  rounded-lg
+                  hover:bg-gray-100
+                "
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
-                disabled={loading || selectedPriority === ticket.priority}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                disabled={
+                  loading ||
+                  selectedPriority === ticket.priority
+                }
+                className="
+                  w-full sm:w-auto
+                  px-4 py-2
+                  bg-blue-600
+                  text-white
+                  rounded-lg
+                  hover:bg-blue-700
+                  disabled:opacity-50
+                  disabled:cursor-not-allowed
+                  flex items-center justify-center gap-2
+                "
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Updating...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
                     </svg>
                     Update Priority
                   </>
