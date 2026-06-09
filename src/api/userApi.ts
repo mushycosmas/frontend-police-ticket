@@ -56,3 +56,12 @@ export const searchUsers = (query: string) => api.get("/auth/users/", { params: 
 
 // Get users by role
 export const getUsersByRole = (role: string) => api.get("/auth/users/", { params: { role } });
+
+
+
+ // Add these new functions for user permissions
+export const getUserPermissions = (userId: number) => 
+    api.get(`/api/users/users/${userId}/permissions/`);
+
+export const getCurrentUserPermissions = () => 
+    api.get('/api/users/users/me/permissions/');

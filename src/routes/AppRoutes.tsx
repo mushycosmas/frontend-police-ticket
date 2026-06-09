@@ -8,14 +8,17 @@ import {
 /* Layout */
 import AppLayout from "../layouts/AppLayout";
 
+/* Auth */
+import ProtectedRoute from "./ProtectedRoute";
+
 /* Pages */
 import { Login } from "../pages/Login";
 import { Home } from "../pages/Home/Home";
 import { PublicCreateTicket } from "../pages/PublicCreateTicket";
 
 import { Dashboard } from "../pages/Dashboard";
-import Tickets  from "../pages/Tickets";
-import { Customers}  from "../pages/customers/Customers";  // ← ADD THIS
+import Tickets from "../pages/Tickets";
+import { Customers } from "../pages/customers/Customers";
 
 import { CreateTicket } from "../pages/CreateTicket";
 import { QAReview } from "../pages/QAReview";
@@ -24,30 +27,25 @@ import { Settings } from "../pages/Settings";
 import Permissions from "../pages/admin/Permissions";
 
 /* Admin Pages */
-import  Categories  from "../pages/admin/Categories";
-import  Users  from "../pages/admin/Users";
-import Roles  from "../pages/admin/Roles";
-import Teams  from "../pages/admin/Teams";
+import Categories from "../pages/admin/Categories";
+import Users from "../pages/admin/Users";
+import Roles from "../pages/admin/Roles";
+import Teams from "../pages/admin/Teams";
+import Priorities from "../pages/admin/Priorities";
 
-import  Priorities  from "../pages/admin/Priorities";
+/* Locations */
+import Regions from "../pages/admin/locations/Regions";
+import Districts from "../pages/admin/locations/Districts";
+import Wards from "../pages/admin/locations/Wards";
+import Streets from "../pages/admin/locations/Streets";
 
-/* Locations Pages */
-import  Regions  from "../pages/admin/locations/Regions";
-import  Districts  from "../pages/admin/locations/Districts";
-import  Wards  from "../pages/admin/locations/Wards";
-import  Streets  from "../pages/admin/locations/Streets";
+/* System */
+import SystemLogs from "../pages/system/SystemLogs";
 
-/* Team Lead Pages */
-// import { TeamTickets } from "../pages/team/TeamTickets";
-// import { TeamAgents } from "../pages/team/TeamAgents";
+/* Reports */
+import Analytics from "../pages/reports/Analytics";
 
-/* System Pages */
-import  SystemLogs  from "../pages/system/SystemLogs";
-
-/* Analytics Pages */
-import  Analytics  from "../pages/reports/Analytics";
-
-/* PUBLIC ROUTES */
+/* ========== ROUTER CONFIGURATION ========== */
 const router = createBrowserRouter([
   {
     path: "/",
@@ -66,141 +64,233 @@ const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      /* Dashboard */
+      /* ========== DASHBOARD ========== */
       {
         path: "/dashboard",
-        element: <Dashboard />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_dashboard"]}>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
       },
 
-      /* Tickets */
+      /* ========== TICKETS ========== */
       {
         path: "/tickets",
-        element: <Tickets />,
-      },  
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
+      },
       {
         path: "/tickets/create",
-        element: <CreateTicket />,
+        element: (
+          <ProtectedRoute allowedPermissions={["create_ticket"]}>
+            <CreateTicket />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/tickets/my",
-        element: <Tickets />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/tickets/assigned",
-        element: <Tickets />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/tickets/unassigned",
-        element: <Tickets />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/tickets/open",
-        element: <Tickets />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/tickets/in-progress",
-        element: <Tickets />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/tickets/resolved",
-        element: <Tickets />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/tickets/closed",
-        element: <Tickets />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <Tickets />
+          </ProtectedRoute>
+        ),
       },
 
-      /* Customers */
+      /* ========== CUSTOMERS ========== */
       {
         path: "/customers",
-        element: <Customers />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_customer"]}>
+            <Customers />
+          </ProtectedRoute>
+        ),
       },
 
-      /* QA */
+      /* ========== QA ========== */
       {
         path: "/qa",
-        element: <QAReview />,
+        element: (
+          <ProtectedRoute allowedPermissions={["qa_review"]}>
+            <QAReview />
+          </ProtectedRoute>
+        ),
       },
 
-      /* Team Lead */
-      // {
-      //   path: "/team/tickets",
-      //   element: <TeamTickets />,
-      // },
-      // {
-      //   path: "/team/agents",
-      //   element: <TeamAgents />,
-      // },
-
-      /* Administration */
-      {
-        path: "/admin/roles",
-        element: <Roles />,
-      },
-       {
-        path: "/admin/permissions",
-        element: <Permissions />,
-      },
-     // Permissions
+      /* ========== ADMINISTRATION ========== */
       {
         path: "/admin/users",
-        element: <Users />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_user"]}>
+            <Users />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/roles",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_role"]}>
+            <Roles />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/permissions",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_permission"]}>
+            <Permissions />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/admin/teams",
-        element: <Teams />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_team"]}>
+            <Teams />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/admin/categories",
-        element: <Categories />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_category"]}>
+            <Categories />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/admin/priorities",
-        element: <Priorities />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_priority"]}>
+            <Priorities />
+          </ProtectedRoute>
+        ),
       },
-     
 
-      /* Locations */
+      /* ========== LOCATIONS ========== */
       {
         path: "/admin/locations/regions",
-        element: <Regions />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_location"]}>
+            <Regions />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/admin/locations/districts",
-        element: <Districts />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_location"]}>
+            <Districts />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/admin/locations/wards",
-        element: <Wards />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_location"]}>
+            <Wards />
+          </ProtectedRoute>
+        ),
       },
       {
-        path: "/admin/locations/Streets",
-        element: <Streets />,
+        path: "/admin/locations/streets",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_location"]}>
+            <Streets />
+          </ProtectedRoute>
+        ),
       },
 
-      /* Reports */
+      /* ========== REPORTS ========== */
       {
         path: "/reports",
-        element: <Reports />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_report"]}>
+            <Reports />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/analytics",
-        element: <Analytics />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_report"]}>
+            <Analytics />
+          </ProtectedRoute>
+        ),
       },
 
-      /* System */
+      /* ========== SYSTEM ========== */
       {
         path: "/settings",
-        element: <Settings />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_settings"]}>
+            <Settings />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/logs",
-        element: <SystemLogs />,
+        element: (
+          <ProtectedRoute allowedPermissions={["view_logs"]}>
+            <SystemLogs />
+          </ProtectedRoute>
+        ),
       },
     ],
   },
 
-  /* fallback */
+  /* FALLBACK ROUTE */
   {
     path: "*",
     element: <Navigate to="/dashboard" replace />,

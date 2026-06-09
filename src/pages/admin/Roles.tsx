@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import {
   getRoles,
@@ -29,12 +29,19 @@ export type Role = {
   name: string;
   description?: string;
   is_active: boolean;
-  permissions?: Permission[];
+  permissions?: (number | Permission)[];
 };
 
-type RoleDetail = Role;
-
 const ITEMS_PER_PAGE = 6;
+
+/* =========================
+   HELPER (IMPORTANT FIX)
+========================= */
+const extractPermissionIds = (permissions: any[] = []) => {
+  return permissions
+    .map((p) => (typeof p === "number" ? p : p?.id))
+    .filter(Boolean);
+};
 
 const Roles: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -51,7 +58,7 @@ const Roles: React.FC = () => {
 
   const [showPermModal, setShowPermModal] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
-  const [savingPermissions, setSavingPermissions] = useState(false); // ✅ ADD THIS
+  const [savingPermissions, setSavingPermissions] = useState(false);
 
   /* =====================
      LOAD DATA
@@ -65,7 +72,9 @@ const Roles: React.FC = () => {
     try {
       setLoading(true);
       const res = await getRoles();
-      setRoles(res?.data ?? []);
+
+      // FIX: API returns array directly
+      setRoles(Array.isArray(res) ? res : res?.data ?? []);
     } catch (err) {
       console.error("Failed to load roles", err);
     } finally {
@@ -76,7 +85,9 @@ const Roles: React.FC = () => {
   const loadPermissions = async () => {
     try {
       const res = await getPermissions();
-      setPermissions(res?.data ?? res ?? []);
+
+      // FIX: safe fallback
+      setPermissions(Array.isArray(res) ? res : res?.data ?? []);
     } catch (err) {
       console.error("Failed to load permissions", err);
     }
@@ -115,7 +126,7 @@ const Roles: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (!window.confirm("Delete this role?")) return;
-    
+
     try {
       await deleteRole(id);
       loadRoles();
@@ -140,15 +151,16 @@ const Roles: React.FC = () => {
   };
 
   /* =====================
-     PERMISSION ACTIONS
+     PERMISSIONS
   ======================*/
   const handleOpenPermissions = async (role: Role) => {
     try {
       setSelectedRole(role);
 
       const roleResponse = await getRole(role.id);
-      const roleData = roleResponse.data;
-      const ids = roleData?.permissions?.map((p: Permission) => p.id) || [];
+      const roleData = roleResponse?.data ?? roleResponse;
+
+      const ids = extractPermissionIds(roleData?.permissions);
 
       setSelectedPermissions(ids);
       setShowPermModal(true);
@@ -157,26 +169,24 @@ const Roles: React.FC = () => {
     }
   };
 
-  // ✅ ADD THIS FUNCTION - Save permissions
   const handleSavePermissions = async (permissionIds: number[]) => {
     if (!selectedRole) return;
 
     try {
       setSavingPermissions(true);
-      
+
       await updateRole(selectedRole.id, {
         name: selectedRole.name,
         description: selectedRole.description,
         is_active: selectedRole.is_active,
-        permissions: permissionIds
+        permissions: permissionIds,
       });
-      
+
       await loadRoles();
-      
+
       setShowPermModal(false);
       setSelectedRole(null);
       setSelectedPermissions([]);
-      
     } catch (error) {
       console.error("Failed to save permissions:", error);
       alert("Failed to save permissions. Please try again.");
@@ -185,6 +195,9 @@ const Roles: React.FC = () => {
     }
   };
 
+  /* =====================
+     UI
+  ======================*/
   return (
     <div className="p-6">
 
@@ -234,7 +247,7 @@ const Roles: React.FC = () => {
         />
       )}
 
-      {/* PERMISSION MODAL - ✅ NOW WITH onSave AND saving */}
+      {/* PERMISSION MODAL */}
       {showPermModal && selectedRole && (
         <PermissionModal
           role={selectedRole}
@@ -242,11 +255,10 @@ const Roles: React.FC = () => {
           selectedPermissions={selectedPermissions}
           setSelectedPermissions={setSelectedPermissions}
           onClose={() => setShowPermModal(false)}
-          onSave={handleSavePermissions}  // ✅ ADD THIS
-          saving={savingPermissions}      // ✅ ADD THIS
+          onSave={handleSavePermissions}
+          saving={savingPermissions}
         />
       )}
-
     </div>
   );
 };

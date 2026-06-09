@@ -1,27 +1,27 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
-  allowedRoles?: string[];
+  allowedPermissions?: string[];
 };
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
-  allowedRoles = [],
+  allowedPermissions = [],
 }) => {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const { isAuthenticated, permissions } = useAuth();
 
-  // Not logged in
-  if (!token || !user) {
+  // 🚨 Not logged in
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // Role check
+  // 🚨 Permission check
   if (
-    allowedRoles.length > 0 &&
-    !allowedRoles.includes(user.role)
+    allowedPermissions.length > 0 &&
+    !allowedPermissions.some((p) => permissions.includes(p))
   ) {
     return <Navigate to="/dashboard" replace />;
   }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { getRoleLabel } from "../../utils/helpers";
+import { NavLink, useLocation } from "react-router-dom";
 import LogoutButton from "../../components/common/LogoutButton";
+import { useAuth } from "../../context/AuthContext";
 
 /* =========================
    TYPES
@@ -9,113 +9,172 @@ import LogoutButton from "../../components/common/LogoutButton";
 type MenuChild = {
   to: string;
   label: string;
+  permission: string;
 };
 
 type MenuGroup = {
   label: string;
   icon: string;
-  roles: string[];
+  permission: string;
   children: MenuChild[];
 };
 
 /* =========================
-   MENU DATA
+   MENU DATA - CORRECTED
 ========================= */
 const menuGroups: MenuGroup[] = [
   {
     label: "Dashboard",
     icon: "⊞",
-    roles: ["ADMIN", "MANAGER", "TEAM_LEAD", "AGENT", "QA_ANALYST"],
-    children: [{ to: "/dashboard", label: "Dashboard" }],
+    permission: "view_dashboard",
+    children: [
+      { to: "/dashboard", label: "Dashboard", permission: "view_dashboard" },
+    ],
   },
   {
     label: "Tickets",
     icon: "🎫",
-    roles: ["ADMIN", "MANAGER", "TEAM_LEAD", "AGENT", "QA_ANALYST"],
+    permission: "view_ticket",
     children: [
-      { to: "/tickets", label: "All Tickets" },
-      { to: "/tickets/my", label: "My Tickets" },
-      { to: "/tickets/assigned", label: "Assigned Tickets" },
-      { to: "/tickets/unassigned", label: "Unassigned Tickets" },
-      { to: "/tickets/open", label: "Open Tickets" },
-      { to: "/tickets/in-progress", label: "In Progress" },
-      { to: "/tickets/resolved", label: "Resolved Tickets" },
-      { to: "/tickets/closed", label: "Closed Tickets" },
+      { to: "/tickets", label: "All Tickets", permission: "view_ticket" },
+      { to: "/tickets/my", label: "My Tickets", permission: "view_ticket" },
+      { to: "/tickets/assigned", label: "Assigned Tickets", permission: "view_ticket" },
+      { to: "/tickets/unassigned", label: "Unassigned Tickets", permission: "view_ticket" },
+      { to: "/tickets/open", label: "Open Tickets", permission: "view_ticket" },
+      { to: "/tickets/in-progress", label: "In Progress", permission: "view_ticket" },
+      { to: "/tickets/resolved", label: "Resolved Tickets", permission: "view_ticket" },
+      { to: "/tickets/closed", label: "Closed Tickets", permission: "view_ticket" },
     ],
   },
   {
     label: "Customers",
     icon: "👥",
-    roles: ["ADMIN"], // Only ADMIN can view customers
+    permission: "view_customer",
     children: [
-      { to: "/customers", label: "All Customers" },
+      { to: "/customers", label: "All Customers", permission: "view_customer" },
+    ],
+  },
+  {
+    label: "QA Review",
+    icon: "✓",
+    permission: "qa_review",
+    children: [
+      { to: "/qa", label: "QA Review", permission: "qa_review" },
     ],
   },
   {
     label: "Reports",
     icon: "📈",
-    roles: ["ADMIN", "MANAGER", "TEAM_LEAD"],
+    permission: "view_report",
     children: [
-      { to: "/reports", label: "Reports" },
-      { to: "/analytics", label: "Analytics" },
+      { to: "/reports", label: "Reports", permission: "view_report" },
+      { to: "/analytics", label: "Analytics", permission: "view_report" },
     ],
   },
   {
     label: "Administration",
     icon: "⚙️",
-    roles: ["ADMIN"],
+    permission: "view_user",
     children: [
-      { to: "/admin/roles", label: "Roles" },
-       { to: "/admin/permissions", label: "Permissions" },
-      { to: "/admin/users", label: "Users" },
-      { to: "/admin/teams", label: "Teams" },
-      { to: "/admin/categories", label: "Categories" },
-      { to: "/admin/priorities", label: "Priorities" },
+      { to: "/admin/roles", label: "Roles", permission: "view_role" },
+      { to: "/admin/permissions", label: "Permissions", permission: "view_permission" },
+      { to: "/admin/users", label: "Users", permission: "view_user" },
+      { to: "/admin/teams", label: "Teams", permission: "view_team" },
+      { to: "/admin/categories", label: "Categories", permission: "view_category" },
+      { to: "/admin/priorities", label: "Priorities", permission: "view_priority" },
     ],
   },
-
   {
     label: "Locations",
     icon: "🌍",
-    roles: ["ADMIN"],
+    permission: "view_location",
     children: [
-      { to: "/admin/locations/regions", label: "Regions" },
-      { to: "/admin/locations/districts", label: "Districts" },
-      { to: "/admin/locations/wards", label: "Wards" },
-      { to: "/admin/locations/streets", label: "Streets" },
+      { to: "/admin/locations/regions", label: "Regions", permission: "view_region" },
+      { to: "/admin/locations/districts", label: "Districts", permission: "view_district" },
+      { to: "/admin/locations/wards", label: "Wards", permission: "view_ward" },
+      { to: "/admin/locations/streets", label: "Streets", permission: "view_street" },
     ],
   },
-  // {
-  //   label: "System",
-  //   icon: "🖥️",
-  //   roles: ["ADMIN"],
-  //   children: [
-  //     { to: "/settings", label: "Settings" },
-  //     { to: "/logs", label: "System Logs" },
-  //   ],
-  // },
+  {
+    label: "System",
+    icon: "⚙️",
+    permission: "view_settings",
+    children: [
+      { to: "/settings", label: "Settings", permission: "view_settings" },
+      { to: "/logs", label: "System Logs", permission: "view_logs" },
+    ],
+  },
 ];
 
 /* =========================
-   SIDEBAR
+   SIDEBAR COMPONENT
 ========================= */
 export const Sidebar: React.FC = () => {
-  const navigate = useNavigate();
   const location = useLocation();
-
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const { user, permissions } = useAuth();
 
   /* =========================
-     AUTO OPEN STATE
+     ROLE NORMALIZER
+  ========================= */
+  const normalizeRole = (role: any) => {
+    if (!role) return "UNKNOWN";
+
+    if (typeof role === "string") {
+      return role.trim().toUpperCase();
+    }
+
+    if (typeof role === "object" && role.name) {
+      return role.name.trim().toUpperCase();
+    }
+
+    return String(role).trim().toUpperCase();
+  };
+
+  const userRole = normalizeRole(user?.role);
+
+  /* =========================
+     SAFE PERMISSION CHECK
+  ========================= */
+  const hasPermission = (perm: string) => {
+    if (!perm) return true;
+    if (!Array.isArray(permissions)) return false;
+    if (permissions.includes("*")) return true;
+    return permissions.includes(perm);
+  };
+
+  /* =========================
+     CHECK GROUP PERMISSION
+  ========================= */
+  const hasGroupPermission = (group: MenuGroup) => {
+    // Check if user has permission for any child in the group
+    return group.children.some(child => hasPermission(child.permission));
+  };
+
+  /* =========================
+     FILTER MENU
+  ========================= */
+  const allowedGroups = menuGroups
+    .map((group) => {
+      const children = group.children.filter((c) =>
+        hasPermission(c.permission)
+      );
+      return { ...group, children };
+    })
+    .filter((group) => group.children.length > 0 && hasGroupPermission(group));
+
+  /* =========================
+     OPEN MENU STATE
   ========================= */
   const getInitialOpenState = () => {
     const state: Record<string, boolean> = {};
 
-    menuGroups.forEach((group) => {
-      const isActive = group.children.some((child) =>
-        location.pathname.startsWith(child.to)
-      );
-
+    allowedGroups.forEach((group) => {
+      const isActive = group.children.some((child) => {
+        // Exact match or starts with (for nested routes)
+        if (child.to === location.pathname) return true;
+        if (child.to !== "/" && location.pathname.startsWith(child.to)) return true;
+        return false;
+      });
       state[group.label] = isActive;
     });
 
@@ -126,47 +185,16 @@ export const Sidebar: React.FC = () => {
     getInitialOpenState()
   );
 
-  /* =========================
-     UPDATE ON ROUTE CHANGE
-  ========================= */
   useEffect(() => {
-    setOpenMenus((prev) => {
-      const updated: Record<string, boolean> = { ...prev };
-
-      menuGroups.forEach((group) => {
-        const isActive = group.children.some((child) =>
-          location.pathname.startsWith(child.to)
-        );
-
-        updated[group.label] = isActive;
-      });
-
-      return updated;
-    });
+    setOpenMenus(getInitialOpenState());
   }, [location.pathname]);
 
-  /* =========================
-     TOGGLE MENU
-  ========================= */
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) => ({
       ...prev,
       [label]: !prev[label],
     }));
   };
-
-  /* =========================
-     LOGOUT
-  ========================= */
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
-
-  const allowedGroups = menuGroups.filter(
-    (group) => user && group.roles.includes(user.role)
-  );
 
   return (
     <aside className="w-64 h-full bg-brand-primary flex flex-col border-r border-blue-900">
@@ -184,7 +212,7 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* NAV */}
+      {/* NAVIGATION */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
 
         {allowedGroups.map((group) => {
@@ -196,7 +224,7 @@ export const Sidebar: React.FC = () => {
               {/* GROUP HEADER */}
               <button
                 onClick={() => toggleMenu(group.label)}
-                className="w-full flex items-center justify-between px-3 py-2 text-blue-200 hover:bg-brand-light rounded-lg transition-all"
+                className="w-full flex items-center justify-between px-3 py-2 text-blue-200 hover:bg-brand-light rounded-lg transition-all duration-200"
               >
                 <span className="flex items-center gap-3">
                   <span className="text-base w-5 text-center">
@@ -206,7 +234,6 @@ export const Sidebar: React.FC = () => {
                     {group.label}
                   </span>
                 </span>
-
                 <span
                   className={`text-xs transition-transform duration-200 ${
                     isOpen ? "rotate-180" : ""
@@ -216,7 +243,7 @@ export const Sidebar: React.FC = () => {
                 </span>
               </button>
 
-              {/* CHILDREN */}
+              {/* CHILDREN MENU ITEMS */}
               <div
                 className={`ml-4 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
                   isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
@@ -227,10 +254,10 @@ export const Sidebar: React.FC = () => {
                     key={item.to}
                     to={item.to}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all
+                      `block px-3 py-2 text-sm rounded-lg transition-all duration-200
                       ${
                         isActive
-                          ? "bg-white text-brand-primary"
+                          ? "bg-white text-brand-primary font-medium shadow-sm"
                           : "text-blue-200 hover:bg-brand-light hover:text-white"
                       }`
                     }
@@ -239,25 +266,26 @@ export const Sidebar: React.FC = () => {
                   </NavLink>
                 ))}
               </div>
+
             </div>
           );
         })}
       </nav>
 
-      {/* USER */}
+      {/* USER SECTION */}
       <div className="px-4 py-4 border-t border-brand-light">
-
         <div className="mb-3">
           <p className="text-white text-sm font-medium">
-            {user?.fullName ?? user?.username ?? "User"}
+            {`${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
+              user?.username ||
+              "Guest"}
           </p>
           <p className="text-blue-300 text-xs">
-            {getRoleLabel(user?.role ?? "")}
+            {userRole}
           </p>
         </div>
 
-         <LogoutButton />
-
+        <LogoutButton />
       </div>
 
     </aside>
