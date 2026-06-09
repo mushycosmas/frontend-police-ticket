@@ -24,7 +24,10 @@ interface User {
   username: string;
   email: string;
   full_name?: string;
+  first_name?: string;
+  last_name?: string;
   role: string;
+  role_name?: string;
 }
 
 const ITEMS_PER_PAGE = 6;
@@ -57,9 +60,23 @@ const Teams: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await getTeams();
-      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
-      setTeams(data);
+      const response = await getTeams();
+      
+      // Handle different response structures
+      let teamsData: Team[] = [];
+      if (response && response.results) {
+        teamsData = response.results;
+      } else if (Array.isArray(response)) {
+        teamsData = response;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        teamsData = response.data;
+      } else if (response && response.data && response.data.results) {
+        teamsData = response.data.results;
+      } else {
+        teamsData = [];
+      }
+      
+      setTeams(teamsData);
     } catch (err) {
       setError("Failed to load teams. Please try again.");
       console.error(err);
@@ -70,10 +87,28 @@ const Teams: React.FC = () => {
 
   const loadAllUsers = async () => {
     try {
-      const res = await getUsers();
-      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
-      setAllUsers(data);
-      const leads = data.filter((u: User) => u.role === "TEAM_LEAD" || u.role === "ADMIN");
+      const response = await getUsers();
+      
+      // Handle different response structures
+      let usersData: User[] = [];
+      if (response && response.results) {
+        usersData = response.results;
+      } else if (Array.isArray(response)) {
+        usersData = response;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        usersData = response.data;
+      } else if (response && response.data && response.data.results) {
+        usersData = response.data.results;
+      } else {
+        usersData = [];
+      }
+      
+      setAllUsers(usersData);
+      
+      // Filter users who can be team leads (ADMIN or TEAM_LEAD)
+      const leads = usersData.filter(
+        (u: User) => u.role_name === "ADMIN" || u.role_name === "TEAM_LEAD" || u.role === "ADMIN" || u.role === "TEAM_LEAD"
+      );
       setTeamLeads(leads);
     } catch (err) {
       console.error("Failed to load users:", err);
@@ -82,11 +117,24 @@ const Teams: React.FC = () => {
 
   const loadTeamMembers = async (teamId: number) => {
     try {
-      const res = await getTeamMembers(teamId);
-      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
-      setTeamMembers(data);
+      const response = await getTeamMembers(teamId);
+      
+      // Handle different response structures
+      let membersData: User[] = [];
+      if (Array.isArray(response)) {
+        membersData = response;
+      } else if (response && response.results) {
+        membersData = response.results;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        membersData = response.data;
+      } else {
+        membersData = [];
+      }
+      
+      setTeamMembers(membersData);
     } catch (err) {
       console.error("Failed to load team members:", err);
+      setTeamMembers([]);
     }
   };
 
@@ -131,7 +179,7 @@ const Teams: React.FC = () => {
       await deleteTeam(selectedTeam.id);
       setShowDelete(false);
       setSelectedTeam(null);
-      loadTeams();
+      await loadTeams();
     } catch (err) {
       setError("Failed to delete team");
       console.error(err);
@@ -160,7 +208,7 @@ const Teams: React.FC = () => {
       setShowModal(false);
       setSelectedTeam(null);
       setForm({ name: "", description: "", lead_id: "" });
-      loadTeams();
+      await loadTeams();
     } catch (error) {
       console.error("Save error:", error);
       alert("Failed to save team");
@@ -198,6 +246,14 @@ const Teams: React.FC = () => {
   const availableUsers = allUsers.filter(
     (user) => !teamMembers.some((member) => member.id === user.id)
   );
+
+  const getUserDisplayName = (user: User): string => {
+    return user.full_name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username;
+  };
+
+  const getUserRole = (user: User): string => {
+    return user.role_name || user.role || "Unknown";
+  };
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -254,7 +310,6 @@ const Teams: React.FC = () => {
                   <th className="p-3 text-xs font-medium text-gray-500">ID</th>
                   <th className="p-3 text-xs font-medium text-gray-500">Team Name</th>
                   <th className="p-3 text-xs font-medium text-gray-500">Description</th>
-                  <th className="p-3 text-xs font-medium text-gray-500">Team Lead</th>
                   <th className="p-3 text-xs font-medium text-gray-500">Members</th>
                   <th className="p-3 text-xs font-medium text-gray-500">Actions</th>
                 </tr>
@@ -265,16 +320,6 @@ const Teams: React.FC = () => {
                     <td className="p-3 text-sm">{team.id}</td>
                     <td className="p-3 font-medium text-gray-800">{team.name}</td>
                     <td className="p-3 text-sm text-gray-600">{team.description || "-"}</td>
-                    <td className="p-3 text-sm">
-                      {team.lead_name ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          {team.lead_name}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">No lead assigned</span>
-                      )}
-                    </td>
                     <td className="p-3">
                       <button
                         onClick={() => handleViewMembers(team)}
@@ -324,6 +369,7 @@ const Teams: React.FC = () => {
                 setForm({ name: "", description: "", lead_id: "" });
                 setShowModal(true);
               }}
+              className="mt-2 text-blue-600 hover:text-blue-700"
             >
               Create your first team
             </button>
@@ -353,6 +399,7 @@ const Teams: React.FC = () => {
         </div>
       )}
 
+      {/* Create/Edit Team Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white w-full max-w-md rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -389,7 +436,7 @@ const Teams: React.FC = () => {
                   <option value="">Select Team Lead</option>
                   {teamLeads.map((user) => (
                     <option key={user.id} value={user.id}>
-                      {user.full_name || user.username} ({user.role})
+                      {getUserDisplayName(user)} ({getUserRole(user)})
                     </option>
                   ))}
                 </select>
@@ -414,6 +461,7 @@ const Teams: React.FC = () => {
         </div>
       )}
 
+      {/* Members Modal */}
       {showMembersModal && selectedTeam && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowMembersModal(false)}>
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-xl flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
@@ -421,9 +469,11 @@ const Teams: React.FC = () => {
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold text-gray-800">{selectedTeam.name}</h2>
-                  <p className="text-sm text-gray-500">Team Members</p>
+                  <p className="text-sm text-gray-500">Team Members ({teamMembers.length})</p>
                 </div>
-                <button onClick={() => setShowMembersModal(false)} className="text-gray-500 hover:text-black">✕</button>
+                <button onClick={() => setShowMembersModal(false)} className="text-gray-500 hover:text-black text-2xl leading-none">
+                  ✕
+                </button>
               </div>
             </div>
             <div className="p-6 border-b">
@@ -441,7 +491,7 @@ const Teams: React.FC = () => {
                   <option value="">Select a user to add...</option>
                   {availableUsers.map((user) => (
                     <option key={user.id} value={user.id}>
-                      {user.full_name || user.username} ({user.role})
+                      {getUserDisplayName(user)} ({getUserRole(user)})
                     </option>
                   ))}
                 </select>
@@ -456,17 +506,25 @@ const Teams: React.FC = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               {teamMembers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No members in this team</div>
+                <div className="text-center py-8 text-gray-500">
+                  <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <p>No members in this team</p>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {teamMembers.map((member) => (
                     <div key={member.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div>
-                        <div className="font-medium text-gray-800">{member.full_name || member.username}</div>
+                        <div className="font-medium text-gray-800">{getUserDisplayName(member)}</div>
                         <div className="text-sm text-gray-500">{member.email}</div>
-                        <div className="text-xs text-gray-400 mt-1">Role: {member.role}</div>
+                        <div className="text-xs text-gray-400 mt-1">Role: {getUserRole(member)}</div>
                       </div>
-                      <button onClick={() => handleRemoveMember(member.id)} className="text-red-600 hover:text-red-800 text-sm px-3 py-1 rounded hover:bg-red-50 transition-colors">
+                      <button
+                        onClick={() => handleRemoveMember(member.id)}
+                        className="text-red-600 hover:text-red-800 text-sm px-3 py-1 rounded hover:bg-red-50 transition-colors"
+                      >
                         Remove
                       </button>
                     </div>
@@ -483,6 +541,7 @@ const Teams: React.FC = () => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {showDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDelete(false)}>
           <div className="bg-white rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
@@ -503,11 +562,11 @@ const Teams: React.FC = () => {
                   setShowDelete(false);
                   setSelectedTeam(null);
                 }}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
-              <button onClick={handleDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+              <button onClick={handleDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
                 Delete Team
               </button>
             </div>
