@@ -66,12 +66,14 @@ const menuGroups: MenuGroup[] = [
     roles: ["ADMIN"],
     children: [
       { to: "/admin/roles", label: "Roles" },
+       { to: "/admin/permissions", label: "Permissions" },
       { to: "/admin/users", label: "Users" },
       { to: "/admin/teams", label: "Teams" },
       { to: "/admin/categories", label: "Categories" },
       { to: "/admin/priorities", label: "Priorities" },
     ],
   },
+
   {
     label: "Locations",
     icon: "🌍",

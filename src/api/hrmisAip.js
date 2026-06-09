@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Base URL of your external API
-const HRMIS_URL = "http://192.168.2.12/api/authentication";
+const HRMIS_URL = "http://192.168.10.12/api/authentication";
 
 /**
  * Fetch user from HRMIS system using check number

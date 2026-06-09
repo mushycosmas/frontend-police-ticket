@@ -2,14 +2,16 @@ import React, { useEffect, useState } from "react";
 import { createUser, updateUser, getTeams } from "../../api/userApi";
 import { Toast } from "../common/Toast";
 
-interface UserFormModalProps {
+interface Props {
   show: boolean;
   onHide: () => void;
   user: any;
   onSuccess: () => void;
 }
 
-const UserFormModal: React.FC<UserFormModalProps> = ({
+const DEFAULT_PASSWORD = "support123";
+
+const UserFormModal: React.FC<Props> = ({
   show,
   onHide,
   user,
@@ -17,7 +19,8 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+  const [toast, setToast] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -25,123 +28,122 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
     last_name: "",
     role: "AGENT",
     team: "",
+    rank: "",
     password: "",
     password_confirm: "",
   });
 
-  useEffect(() => {
-    if (show) {
-      loadTeams();
-      if (user) {
-        setFormData({
-          username: user.username || "",
-          email: user.email || "",
-          first_name: user.first_name || "",
-          last_name: user.last_name || "",
-          role: user.role || "AGENT",
-          team: user.team?.id?.toString() || user.team_id?.toString() || "",
-          password: "",
-          password_confirm: "",
-        });
-      } else {
-        setFormData({
-          username: "",
-          email: "",
-          first_name: "",
-          last_name: "",
-          role: "AGENT",
-          team: "",
-          password: "",
-          password_confirm: "",
-        });
-      }
-    }
-  }, [show, user]);
-
+  /**
+   * =========================
+   * LOAD TEAMS
+   * =========================
+   */
   const loadTeams = async () => {
     try {
       const res = await getTeams();
-      // Handle both array and object response
-      let teamsData = [];
-      if (Array.isArray(res.data)) {
-        teamsData = res.data;
-      } else if (res.data?.results && Array.isArray(res.data.results)) {
-        teamsData = res.data.results;
-      } else if (res.data?.data && Array.isArray(res.data.data)) {
-        teamsData = res.data.data;
-      } else {
-        teamsData = [];
-      }
-      setTeams(teamsData);
+
+      const data =
+        res.data?.results ||
+        res.data?.data ||
+        (Array.isArray(res.data) ? res.data : []);
+
+      setTeams(data);
     } catch (err) {
-      console.error("Failed to load teams:", err);
+      console.error(err);
     }
   };
 
-  const showToast = (message: string, type: "success" | "error" | "info" | "warning") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+  /**
+   * =========================
+   * INIT FORM
+   * =========================
+   */
+  useEffect(() => {
+    if (!show) return;
+
+    loadTeams();
+
+    if (user) {
+      setFormData({
+        username: user.username || "",
+        email: user.email || "",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        role: user.role || "AGENT",
+        team: user.team || "",
+        rank: user.rank || "",
+        password: "",
+        password_confirm: "",
+      });
+    } else {
+      setFormData({
+        username: "",
+        email: "",
+        first_name: "",
+        last_name: "",
+        role: "AGENT",
+        team: "",
+        rank: "",
+        password: DEFAULT_PASSWORD,
+        password_confirm: DEFAULT_PASSWORD,
+      });
+    }
+  }, [show, user]);
+
+  /**
+   * =========================
+   * HANDLE CHANGE
+   * =========================
+   */
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
+  /**
+   * =========================
+   * SUBMIT
+   * =========================
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.username) {
-      showToast("Username is required", "error");
-      return;
-    }
-    if (!formData.email) {
-      showToast("Email is required", "error");
-      return;
-    }
-    
-    if (!user && !formData.password) {
-      showToast("Password is required for new user", "error");
-      return;
-    }
-    
-    if (!user && formData.password !== formData.password_confirm) {
-      showToast("Passwords do not match", "error");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const payload: any = {
-        username: formData.username,
+      const payload = {
+        username: formData.username, // checkno or HRMIS id
         email: formData.email,
         first_name: formData.first_name,
         last_name: formData.last_name,
         role: formData.role,
-        team: formData.team ? parseInt(formData.team) : null,
+        rank: formData.rank,
+        team: formData.team ? Number(formData.team) : null,
       };
 
       if (!user) {
-        payload.password = formData.password;
-        payload.password_confirm = formData.password_confirm;
-        await createUser(payload);
-        showToast("✓ User created successfully!", "success");
+        await createUser({
+          ...payload,
+          password: formData.password || DEFAULT_PASSWORD,
+          password_confirm:
+            formData.password_confirm || DEFAULT_PASSWORD,
+        });
+
+        setToast({ message: "User created successfully", type: "success" });
       } else {
         await updateUser(user.id, payload);
-        showToast("✓ User updated successfully!", "success");
+        setToast({ message: "User updated successfully", type: "success" });
       }
 
       setTimeout(() => {
         onSuccess();
         onHide();
-      }, 1500);
+      }, 800);
     } catch (err: any) {
-      console.error("Save error:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to save user";
-      showToast(`✗ ${errorMessage}`, "error");
+      setToast({
+        message: err?.response?.data?.message || "Failed to save user",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -159,144 +161,134 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
         />
       )}
 
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onHide}>
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="p-6 border-b">
-            <h2 className="text-xl font-bold text-gray-800">
-              {user ? "Edit User" : "Create User"}
-            </h2>
-          </div>
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        onClick={onHide}
+      >
+        <div
+          className="bg-white w-full max-w-lg rounded-xl p-6"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="text-xl font-bold mb-4">
+            {user ? "Edit User" : "Create User (HRMIS Import)"}
+          </h2>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+          <form onSubmit={handleSubmit} className="space-y-3">
+
+            {/* CHECKNO / USERNAME */}
+            <input
+              name="username"
+              placeholder="Check Number"
+              value={formData.username}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+              required
+            />
+
+            {/* EMAIL */}
+            <input
+              name="email"
+              placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+              required
+            />
+
+            {/* NAME */}
+            <div className="flex gap-2">
               <input
-                type="text"
-                name="username"
-                value={formData.username}
+                name="first_name"
+                placeholder="First Name"
+                value={formData.first_name}
                 onChange={handleChange}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                className="w-full border p-2 rounded"
+              />
+              <input
+                name="last_name"
+                placeholder="Last Name"
+                value={formData.last_name}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
+            {/* RANK (TEXT NOT CHOICE) */}
+            <input
+              name="rank"
+              placeholder="Rank (e.g PC, SGT, INSPECTOR)"
+              value={formData.rank}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+            />
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                <input
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
+            {/* ROLE */}
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+            >
+              <option value="AGENT">Agent</option>
+              <option value="TEAM_LEAD">Team Lead</option>
+              <option value="ADMIN">Admin</option>
+              <option value="MANAGER">Manager</option>
+              <option value="QA_ANALYST">QA Analyst</option>
+            </select>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="AGENT">Agent</option>
-                <option value="TEAM_LEAD">Team Lead</option>
-                <option value="ADMIN">Admin</option>
-                <option value="QA_ANALYST">QA Analyst</option>
-                <option value="MANAGER">Manager</option>
-              </select>
-            </div>
+            {/* TEAM */}
+            <select
+              name="team"
+              value={formData.team}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+            >
+              <option value="">No Team</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
-              <select
-                name="team"
-                value={formData.team}
-                onChange={handleChange}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">No Team</option>
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+            {/* PASSWORD ONLY CREATE */}
             {!user && (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full border p-2 rounded"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
-                  <input
-                    type="password"
-                    name="password_confirm"
-                    value={formData.password_confirm}
-                    onChange={handleChange}
-                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
+                <input
+                  name="password_confirm"
+                  type="password"
+                  placeholder="Confirm Password"
+                  value={formData.password_confirm}
+                  onChange={handleChange}
+                  className="w-full border p-2 rounded"
+                />
               </>
             )}
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
+            {/* BUTTONS */}
+            <div className="flex justify-end gap-2 pt-3">
               <button
                 type="button"
                 onClick={onHide}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border rounded"
               >
                 Cancel
               </button>
+
               <button
-                type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded"
               >
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Saving...
-                  </>
-                ) : (
-                  user ? "Update" : "Create"
-                )}
+                {loading ? "Saving..." : user ? "Update" : "Create"}
               </button>
             </div>
           </form>

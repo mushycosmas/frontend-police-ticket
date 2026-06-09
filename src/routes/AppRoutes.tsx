@@ -21,6 +21,7 @@ import { CreateTicket } from "../pages/CreateTicket";
 import { QAReview } from "../pages/QAReview";
 import { Reports } from "../pages/Reports";
 import { Settings } from "../pages/Settings";
+import Permissions from "../pages/admin/Permissions";
 
 /* Admin Pages */
 import  Categories  from "../pages/admin/Categories";
@@ -136,6 +137,11 @@ const router = createBrowserRouter([
         path: "/admin/roles",
         element: <Roles />,
       },
+       {
+        path: "/admin/permissions",
+        element: <Permissions />,
+      },
+     // Permissions
       {
         path: "/admin/users",
         element: <Users />,
