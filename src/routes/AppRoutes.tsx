@@ -222,7 +222,7 @@ const router = createBrowserRouter([
       {
         path: "/admin/locations/regions",
         element: (
-          <ProtectedRoute allowedPermissions={["view_location"]}>
+          <ProtectedRoute allowedPermissions={["view_region"]}>
             <Regions />
           </ProtectedRoute>
         ),
@@ -230,7 +230,7 @@ const router = createBrowserRouter([
       {
         path: "/admin/locations/districts",
         element: (
-          <ProtectedRoute allowedPermissions={["view_location"]}>
+          <ProtectedRoute allowedPermissions={["view_district"]}>
             <Districts />
           </ProtectedRoute>
         ),
@@ -238,7 +238,7 @@ const router = createBrowserRouter([
       {
         path: "/admin/locations/wards",
         element: (
-          <ProtectedRoute allowedPermissions={["view_location"]}>
+          <ProtectedRoute allowedPermissions={["view_ward"]}>
             <Wards />
           </ProtectedRoute>
         ),
@@ -246,7 +246,7 @@ const router = createBrowserRouter([
       {
         path: "/admin/locations/streets",
         element: (
-          <ProtectedRoute allowedPermissions={["view_location"]}>
+          <ProtectedRoute allowedPermissions={["view_street"]}>
             <Streets />
           </ProtectedRoute>
         ),

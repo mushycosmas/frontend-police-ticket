@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { createUser, updateUser, getTeams } from "../../api/userApi";
+import { createUser, updateUser } from "../../api/userApi";
 import { Toast } from "../common/Toast";
+import { getTeams } from "../../api/teamApi";
+import { getRoles } from "../../api/roleApi";
 
 interface Props {
   show: boolean;
@@ -11,6 +13,17 @@ interface Props {
 
 const DEFAULT_PASSWORD = "support123";
 
+/* =========================
+   SAFE RESPONSE NORMALIZER
+========================= */
+const normalizeResponse = (res: any) => {
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.results)) return res.data.results;
+  if (Array.isArray(res?.results)) return res.results;
+  if (Array.isArray(res)) return res;
+  return [];
+};
+
 const UserFormModal: React.FC<Props> = ({
   show,
   onHide,
@@ -19,6 +32,7 @@ const UserFormModal: React.FC<Props> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [toast, setToast] = useState<any>(null);
 
   const [formData, setFormData] = useState({
@@ -26,42 +40,47 @@ const UserFormModal: React.FC<Props> = ({
     email: "",
     first_name: "",
     last_name: "",
-    role: "AGENT",
+    role_id: "",
     team: "",
     rank: "",
     password: "",
     password_confirm: "",
   });
 
-  /**
-   * =========================
-   * LOAD TEAMS
-   * =========================
-   */
+  /* =========================
+     LOAD TEAMS
+  ========================= */
   const loadTeams = async () => {
     try {
       const res = await getTeams();
-
-      const data =
-        res.data?.results ||
-        res.data?.data ||
-        (Array.isArray(res.data) ? res.data : []);
-
+      const data = normalizeResponse(res);
       setTeams(data);
     } catch (err) {
-      console.error(err);
+      console.error("loadTeams error:", err);
     }
   };
 
-  /**
-   * =========================
-   * INIT FORM
-   * =========================
-   */
+  /* =========================
+     LOAD ROLES
+  ========================= */
+  const loadRoles = async () => {
+    try {
+      const res = await getRoles();
+      const data = normalizeResponse(res);
+      setRoles(data);
+    } catch (err) {
+      console.error("loadRoles error:", err);
+    }
+  };
+
+  /* =========================
+     INIT FORM
+  ========================= */
   useEffect(() => {
     if (!show) return;
 
     loadTeams();
+    loadRoles();
 
     if (user) {
       setFormData({
@@ -69,7 +88,7 @@ const UserFormModal: React.FC<Props> = ({
         email: user.email || "",
         first_name: user.first_name || "",
         last_name: user.last_name || "",
-        role: user.role || "AGENT",
+        role_id: user.role_id || "",
         team: user.team || "",
         rank: user.rank || "",
         password: "",
@@ -81,7 +100,7 @@ const UserFormModal: React.FC<Props> = ({
         email: "",
         first_name: "",
         last_name: "",
-        role: "AGENT",
+        role_id: "",
         team: "",
         rank: "",
         password: DEFAULT_PASSWORD,
@@ -90,33 +109,32 @@ const UserFormModal: React.FC<Props> = ({
     }
   }, [show, user]);
 
-  /**
-   * =========================
-   * HANDLE CHANGE
-   * =========================
-   */
+  /* =========================
+     HANDLE CHANGE
+  ========================= */
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
   };
 
-  /**
-   * =========================
-   * SUBMIT
-   * =========================
-   */
+  /* =========================
+     SUBMIT
+  ========================= */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const payload = {
-        username: formData.username, // checkno or HRMIS id
+        username: formData.username,
         email: formData.email,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        role: formData.role,
+        role_id: formData.role_id ? Number(formData.role_id) : null,
         rank: formData.rank,
         team: formData.team ? Number(formData.team) : null,
       };
@@ -125,14 +143,20 @@ const UserFormModal: React.FC<Props> = ({
         await createUser({
           ...payload,
           password: formData.password || DEFAULT_PASSWORD,
-          password_confirm:
-            formData.password_confirm || DEFAULT_PASSWORD,
+          password_confirm: formData.password_confirm || DEFAULT_PASSWORD,
         });
 
-        setToast({ message: "User created successfully", type: "success" });
+        setToast({
+          message: "User created successfully",
+          type: "success",
+        });
       } else {
         await updateUser(user.id, payload);
-        setToast({ message: "User updated successfully", type: "success" });
+
+        setToast({
+          message: "User updated successfully",
+          type: "success",
+        });
       }
 
       setTimeout(() => {
@@ -141,7 +165,8 @@ const UserFormModal: React.FC<Props> = ({
       }, 800);
     } catch (err: any) {
       setToast({
-        message: err?.response?.data?.message || "Failed to save user",
+        message:
+          err?.response?.data?.message || "Failed to save user",
         type: "error",
       });
     } finally {
@@ -175,7 +200,7 @@ const UserFormModal: React.FC<Props> = ({
 
           <form onSubmit={handleSubmit} className="space-y-3">
 
-            {/* CHECKNO / USERNAME */}
+            {/* USERNAME */}
             <input
               name="username"
               placeholder="Check Number"
@@ -213,7 +238,7 @@ const UserFormModal: React.FC<Props> = ({
               />
             </div>
 
-            {/* RANK (TEXT NOT CHOICE) */}
+            {/* RANK */}
             <input
               name="rank"
               placeholder="Rank (e.g PC, SGT, INSPECTOR)"
@@ -224,16 +249,17 @@ const UserFormModal: React.FC<Props> = ({
 
             {/* ROLE */}
             <select
-              name="role"
-              value={formData.role}
+              name="role_id"
+              value={formData.role_id}
               onChange={handleChange}
               className="w-full border p-2 rounded"
             >
-              <option value="AGENT">Agent</option>
-              <option value="TEAM_LEAD">Team Lead</option>
-              <option value="ADMIN">Admin</option>
-              <option value="MANAGER">Manager</option>
-              <option value="QA_ANALYST">QA Analyst</option>
+              <option value="">Select Role</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
             </select>
 
             {/* TEAM */}
@@ -251,7 +277,7 @@ const UserFormModal: React.FC<Props> = ({
               ))}
             </select>
 
-            {/* PASSWORD ONLY CREATE */}
+            {/* PASSWORD (CREATE ONLY) */}
             {!user && (
               <>
                 <input

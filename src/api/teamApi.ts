@@ -180,3 +180,14 @@ export const bulkAssignToTeam = async (teamId: number, userIds: number[]): Promi
   const response = await api.post(`/auth/teams/${teamId}/bulk_assign/`, { user_ids: userIds });
   return response.data;
 };
+
+
+ export const normalizeList = (res: any) =>
+  Array.isArray(res?.data)
+    ? res.data
+    : Array.isArray(res?.data?.results)
+    ? res.data.results
+    : Array.isArray(res?.results)
+    ? res.results
+    : [];
+    

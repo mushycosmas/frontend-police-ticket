@@ -1,7 +1,6 @@
 import React, {
   createContext,
   useContext,
-  useEffect,
   useState,
   ReactNode,
 } from "react";
@@ -16,7 +15,7 @@ interface User {
   email: string;
   first_name?: string;
   last_name?: string;
-  role?: string | { name: string }; // FIX: backend inconsistency safe
+  role?: string | { name: string };
   role_id?: number;
   team_id?: number | null;
   team_name?: string | null;
@@ -47,7 +46,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /* =========================
-   SAFE NORMALIZER
+   HELPERS
 ========================= */
 const normalizePermissions = (perms: any): string[] => {
   if (Array.isArray(perms)) return perms.filter(Boolean);
@@ -55,45 +54,40 @@ const normalizePermissions = (perms: any): string[] => {
   return [];
 };
 
+const safeParseUser = (data: string | null): User | null => {
+  if (!data) return null;
+
+  try {
+    const parsed = JSON.parse(data);
+
+    return {
+      ...parsed,
+      permissions: normalizePermissions(parsed.permissions),
+      role:
+        typeof parsed.role === "object"
+          ? parsed.role?.name
+          : parsed.role,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/* =========================
+   INITIAL STATE (IMPORTANT FIX)
+========================= */
+const initialToken = localStorage.getItem("token");
+const initialUser = safeParseUser(localStorage.getItem("user"));
+const initialPermissions = initialUser?.permissions || [];
+
 /* =========================
    PROVIDER
 ========================= */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [permissions, setPermissions] = useState<string[]>([]);
-
-  /* =========================
-     LOAD FROM STORAGE
-  ========================= */
-  useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-
-    if (!storedToken || !storedUser) return;
-
-    try {
-      const parsedUser = JSON.parse(storedUser);
-
-      const safeUser: User = {
-        ...parsedUser,
-        permissions: normalizePermissions(parsedUser.permissions),
-        role:
-          typeof parsedUser.role === "object"
-            ? parsedUser.role?.name
-            : parsedUser.role,
-      };
-
-      setToken(storedToken);
-      setUser(safeUser);
-      setPermissions(safeUser.permissions);
-    } catch (err) {
-      console.error("Invalid stored user data", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("refresh");
-      localStorage.removeItem("user");
-    }
-  }, []);
+  const [token, setToken] = useState<string | null>(initialToken);
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [permissions, setPermissions] =
+    useState<string[]>(initialPermissions);
 
   /* =========================
      LOGIN
@@ -102,31 +96,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     username: string;
     password: string;
   }): Promise<User> => {
-    try {
-      const response = await loginUser(credentials);
+    const response = await loginUser(credentials);
 
-      const { access, refresh, user } = response.data;
+    const { access, refresh, user } = response.data;
 
-      const safeUser: User = {
-        ...user,
-        permissions: normalizePermissions(user.permissions),
-        role:
-          typeof user.role === "object" ? user.role?.name : user.role,
-      };
+    const safeUser: User = {
+      ...user,
+      permissions: normalizePermissions(user.permissions),
+      role:
+        typeof user.role === "object"
+          ? user.role?.name
+          : user.role,
+    };
 
-      localStorage.setItem("token", access);
-      localStorage.setItem("refresh", refresh);
-      localStorage.setItem("user", JSON.stringify(safeUser));
+    localStorage.setItem("token", access);
+    localStorage.setItem("refresh", refresh);
+    localStorage.setItem("user", JSON.stringify(safeUser));
 
-      setToken(access);
-      setUser(safeUser);
-      setPermissions(safeUser.permissions);
+    setToken(access);
+    setUser(safeUser);
+    setPermissions(safeUser.permissions);
 
-      return safeUser;
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
-    }
+    return safeUser;
   };
 
   /* =========================
@@ -137,8 +128,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("refresh");
     localStorage.removeItem("user");
 
-    setUser(null);
     setToken(null);
+    setUser(null);
     setPermissions([]);
   };
 
@@ -147,15 +138,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   ========================= */
   const hasPermission = (permission: string) => {
     if (!permission) return true;
-    if (!Array.isArray(permissions)) return false;
     if (permissions.includes("*")) return true;
-
     return permissions.includes(permission);
   };
 
   const hasAnyPermission = (perms: string[]) => {
-    if (!Array.isArray(perms) || perms.length === 0) return true;
-    if (!Array.isArray(permissions)) return false;
+    if (!perms?.length) return true;
     if (permissions.includes("*")) return true;
 
     return perms.some((p) => permissions.includes(p));
