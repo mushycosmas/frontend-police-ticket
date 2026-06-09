@@ -32,12 +32,12 @@ export const updateTicketPriority = (id, priority) =>
 
 // Resolve ticket with optional comment
 export const resolveTicket = (id, comment = '') =>
-  api.post(`/tickets/${id}/resolve/`, {
+  api.post(`/tickets/tickets/${id}/resolve/`, {
     comment: comment?.trim() || null
   });
 
 export const closeTicket = (id, comment = '') =>
-  api.post(`/tickets/${id}/close/`, {
+  api.post(`/tickets/tickets/${id}/close/`, {
     comment: comment?.trim() || null
   });
 
