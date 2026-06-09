@@ -66,5 +66,5 @@ export const inprogressTickets = () =>
 
 export const trackTickets = (ticket_number) => {
   // Fixed URL: removed duplicate /tickets/
-  return publicApi.get(`/tickets/track/?ticket_number=${ticket_number}`);
+  return publicApi.get(`/tickets/tickets/track/?ticket_number=${ticket_number}`);
 };
