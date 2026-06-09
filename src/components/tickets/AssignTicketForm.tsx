@@ -32,84 +32,91 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
     loadData();
   }, []);
 
-  const loadData = async () => {
-    setLoadingData(true);
-    setError(null);
-    try {
-      console.log("Loading data for user:", user);
-      console.log("User role:", user.role);
-      console.log("User team_id:", user.team_id);
-      console.log("User team:", user.team);
+ const loadData = async () => {
+  setLoadingData(true);
+  setError(null);
 
-      // Load users
-      const usersRes = await getUsers();
-      let usersData = [];
-      if (Array.isArray(usersRes.data)) {
-        usersData = usersRes.data;
-      } else if (usersRes.data?.results && Array.isArray(usersRes.data.results)) {
-        usersData = usersRes.data.results;
-      } else {
-        usersData = [];
-      }
+  try {
+    const usersRes = await getUsers();
 
-      console.log("All users loaded:", usersData.length);
+    const usersData =
+      usersRes.data?.results ||
+      usersRes.data?.data ||
+      (Array.isArray(usersRes.data) ? usersRes.data : []);
 
-      let agents = [];
+    console.log("Users:", usersData);
 
-      // Filter agents based on user role
-      if (user.role === "TEAM_LEAD") {
-        // Team Lead can only see agents from their team
-        const teamId = user.team_id || user.team;
-        console.log("Team Lead - Looking for agents in team ID:", teamId);
-        
-        agents = usersData.filter(
-          (u: any) => 
-            u.role === "AGENT" && 
-            (Number(u.team_id) === Number(teamId) || Number(u.team) === Number(teamId))
+    let agents: any[] = [];
+
+    const currentRole = (
+      user.role_name ||
+      user.role ||
+      ""
+    ).toUpperCase();
+
+    if (currentRole === "TEAM_LEAD") {
+      const teamId = user.team_id;
+
+      agents = usersData.filter((u: any) => {
+        const role = (
+          u.role_name ||
+          u.role ||
+          ""
+        ).toUpperCase();
+
+        return (
+          role === "AGENT" &&
+          Number(u.team_id) === Number(teamId)
         );
-        
-        console.log("Filtered agents for Team Lead:", agents.length);
-        console.log("Agents:", agents);
-        
-        // Auto-select the first agent if available
-        if (agents.length > 0 && !selectedAgent) {
-          setSelectedAgent(agents[0].id.toString());
-        }
-      } else if (user.role === "ADMIN") {
-        // Admin can see all agents
-        agents = usersData.filter((u: any) => u.role === "AGENT");
-        console.log("Admin - All agents:", agents.length);
-      } else if (user.role === "AGENT") {
-        // Agent can see themselves
-        agents = usersData.filter((u: any) => u.id === user.id);
-        if (agents.length > 0 && !selectedAgent) {
-          setSelectedAgent(agents[0].id.toString());
-        }
-      }
-      
-      setAllUsers(agents);
-
-      // Load teams (only for Admin)
-      if (user.role === "ADMIN") {
-        const teamsRes = await getTeams();
-        let teamsData = [];
-        if (Array.isArray(teamsRes.data)) {
-          teamsData = teamsRes.data;
-        } else if (teamsRes.data?.results && Array.isArray(teamsRes.data.results)) {
-          teamsData = teamsRes.data.results;
-        } else {
-          teamsData = [];
-        }
-        setTeams(teamsData);
-        console.log("Teams loaded:", teamsData.length);
-      }
-    } catch (error: any) {
-      console.error("Failed to load data:", error);
-      setError(error.message || "Failed to load data");
-    } finally {
-      setLoadingData(false);
+      });
     }
-  };
+
+    else if (currentRole === "ADMIN") {
+      agents = usersData.filter((u: any) => {
+        const role = (
+          u.role_name ||
+          u.role ||
+          ""
+        ).toUpperCase();
+
+        return role === "AGENT";
+      });
+
+      const teamsRes = await getTeams();
+
+      const teamsData =
+        teamsRes.data?.results ||
+        teamsRes.data?.data ||
+        (Array.isArray(teamsRes.data)
+          ? teamsRes.data
+          : []);
+
+      setTeams(teamsData);
+    }
+
+    else if (currentRole === "AGENT") {
+      agents = usersData.filter(
+        (u: any) => Number(u.id) === Number(user.id)
+      );
+    }
+
+    setAllUsers(agents);
+
+    if (agents.length > 0) {
+      setSelectedAgent(String(agents[0].id));
+    }
+
+    console.log("Filtered Agents:", agents);
+  } catch (err: any) {
+    console.error(err);
+    setError(
+      err?.response?.data?.message ||
+      "Failed to load users"
+    );
+  } finally {
+    setLoadingData(false);
+  }
+};
 
   const showToast = (message: string, type: "success" | "error" | "info" | "warning") => {
     setToast({ message, type });
