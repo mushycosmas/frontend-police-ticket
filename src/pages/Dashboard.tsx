@@ -6,6 +6,7 @@ import { KPISection } from "../components/dashboard/KPISection";
 import { RecentTickets } from "../components/dashboard/RecentTickets";
 import { StatsSection } from "../components/dashboard/StatsSection";
 import TicketViewModal from "../components/tickets/TicketViewModal";
+import OverdueTicketsWidget from "../components/dashboard/OverdueTicketsWidget";
 
 // Helper to normalize priority from API to expected format
 const normalizePriority = (priority: string): string => {
@@ -34,7 +35,7 @@ export const Dashboard: React.FC = () => {
   const [recentTickets, setRecentTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showView, setShowView] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
   const calculateStats = useCallback((tickets: any[]) => {
     const totalTickets = tickets.length;
@@ -88,13 +89,13 @@ export const Dashboard: React.FC = () => {
   }, [loadDashboard]);
 
   const handleViewTicket = useCallback((ticket: any) => {
-    setSelectedTicket(ticket);
+    setSelectedTicketId(ticket.id);
     setShowView(true);
   }, []);
 
   const handleCloseModal = useCallback(() => {
     setShowView(false);
-    setSelectedTicket(null);
+    setSelectedTicketId(null);
   }, []);
 
   if (loading) {
@@ -108,13 +109,23 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       <DashboardHeader username={user?.username || user?.full_name || "User"} />
+      
+      {/* KPI Section */}
       <KPISection stats={stats} />
-      <RecentTickets tickets={recentTickets} onViewTicket={handleViewTicket} />
+      
+      {/* Two Column Layout for Overdue Tickets and Recent Tickets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <OverdueTicketsWidget />
+        <RecentTickets tickets={recentTickets} onViewTicket={handleViewTicket} />
+      </div>
+      
+      {/* Stats Section - Full Width */}
       <StatsSection stats={stats} priorityStats={priorityStats} />
       
+      {/* Ticket View Modal */}
       <TicketViewModal
         show={showView}
-        ticket={selectedTicket}
+        ticketId={selectedTicketId}
         onHide={handleCloseModal}
         onRefresh={loadDashboard}
       />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { createTicket } from "../../api/ticketApi";
 import { getTeams } from "../../api/teamApi";
 import { getUsers } from "../../api/userApi";
@@ -46,29 +46,29 @@ const CreateTicketModal: React.FC<Props> = ({
   onHide,
   onSuccess,
 }) => {
-  const userData = JSON.parse(localStorage.getItem("user") || "{}");
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURN
+  const userDataRef = useRef(JSON.parse(localStorage.getItem("user") || "{}"));
+  const userData = userDataRef.current;
+  const hasLoadedRef = useRef(false);
 
   // Helper function to get user role as string
-  const getUserRole = (user: any): string => {
+  const getUserRole = useCallback((user: any): string => {
     if (!user) return "";
     
-    // If role_name exists (from your API)
     if (user.role_name) {
       return user.role_name.toUpperCase();
     }
     
-    // If role is an object with name property
     if (user.role && typeof user.role === 'object' && user.role.name) {
       return user.role.name.toUpperCase();
     }
     
-    // If role is a string
     if (user.role && typeof user.role === 'string') {
       return user.role.toUpperCase();
     }
     
     return "";
-  };
+  }, []);
 
   const userRole = getUserRole(userData);
 
@@ -91,13 +91,13 @@ const CreateTicketModal: React.FC<Props> = ({
     assigned_to: "",
   });
 
-  const showToast = (message: string, type: "success" | "error" | "info" | "warning") => {
+  const showToast = useCallback((message: string, type: "success" | "error" | "info" | "warning") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   // ======================
-  // RESET FORM
+  // RESET FORM WHEN MODAL OPENS
   // ======================
   useEffect(() => {
     if (show) {
@@ -113,62 +113,47 @@ const CreateTicketModal: React.FC<Props> = ({
         assigned_to: "",
       });
       setMode("agent");
+      hasLoadedRef.current = false;
     }
   }, [show]);
 
   // ======================
-  // LOAD DATA
+  // LOAD DATA - ONLY ONCE WHEN MODAL OPENS
   // ======================
   useEffect(() => {
+    if (!show) return;
+    if (hasLoadedRef.current) return;
+
     const loadData = async () => {
       try {
+        console.log("Loading data...");
+        
         const [teamsRes, usersRes] = await Promise.all([
           getTeams(),
           getUsers(),
         ]);
 
-        // Handle teams response - your API returns { count, page, results, etc. }
-        let allTeams: Team[] = [];
-        if (teamsRes?.results && Array.isArray(teamsRes.results)) {
-          // Format: { count, page, page_size, total_pages, results: [...] }
-          allTeams = teamsRes.results;
-        } else if (Array.isArray(teamsRes)) {
-          // Format: direct array
-          allTeams = teamsRes;
-        } else if (teamsRes?.data?.results) {
-          allTeams = teamsRes.data.results;
-        } else if (Array.isArray(teamsRes?.data)) {
-          allTeams = teamsRes.data;
-        }
+        const extractArray = (response: any): any[] => {
+          if (!response) return [];
+          if (Array.isArray(response)) return response;
+          if (response?.results && Array.isArray(response.results)) return response.results;
+          if (response?.data?.results && Array.isArray(response.data.results)) return response.data.results;
+          if (response?.data && Array.isArray(response.data)) return response.data;
+          return [];
+        };
 
-        // Handle users response - your API returns direct array
-        let allUsers: User[] = [];
-        if (Array.isArray(usersRes)) {
-          // Format: direct array
-          allUsers = usersRes;
-        } else if (usersRes?.results && Array.isArray(usersRes.results)) {
-          // Format: { results: [...] }
-          allUsers = usersRes.results;
-        } else if (usersRes?.data?.results) {
-          allUsers = usersRes.data.results;
-        } else if (Array.isArray(usersRes?.data)) {
-          allUsers = usersRes.data;
-        }
+        const allTeams: Team[] = extractArray(teamsRes);
+        const allUsers: User[] = extractArray(usersRes);
 
-        console.log("Teams loaded:", allTeams);
-        console.log("Users loaded:", allUsers);
-        console.log("Current user:", userData);
-        console.log("User role:", userRole);
+        console.log("Teams loaded:", allTeams.length);
+        console.log("Users loaded:", allUsers.length);
 
         setTeams(allTeams);
 
-        // Helper to check if user is an agent
         const isAgent = (user: User): boolean => {
-          // Check by role_name first
           if (user.role_name) {
             return user.role_name.toUpperCase() === "AGENT";
           }
-          // Check by role object/string
           if (user.role) {
             if (typeof user.role === 'object' && user.role.name) {
               return user.role.name.toUpperCase() === "AGENT";
@@ -180,27 +165,21 @@ const CreateTicketModal: React.FC<Props> = ({
           return false;
         };
 
-        // Helper to get user's team ID
         const getUserTeamId = (user: any): number | null => {
           return user.team_id || user.team || null;
         };
 
         if (userRole === "TEAM_LEAD") {
-          // Get the team ID
           const teamId = getUserTeamId(userData);
-          console.log("Team Lead - Team ID:", teamId);
           
-          // Filter agents belonging to the team lead's team
           const filteredAgents = allUsers.filter((u) => {
             const agent = isAgent(u);
             const userTeamId = getUserTeamId(u);
             return agent && Number(userTeamId) === Number(teamId);
           });
           
-          console.log("Filtered agents for team lead:", filteredAgents);
           setAgents(filteredAgents);
           
-          // Auto-select team for team lead
           if (teamId) {
             setFormData((prev) => ({
               ...prev,
@@ -212,10 +191,8 @@ const CreateTicketModal: React.FC<Props> = ({
             showToast("No agents found in your team. Please contact admin.", "warning");
           }
         } else if (userRole === "AGENT") {
-          // For agents, only show themselves
           const currentAgent = allUsers.filter((u) => u.id === userData.id);
           setAgents(currentAgent);
-          // Auto-select the agent
           if (currentAgent.length > 0) {
             setFormData((prev) => ({
               ...prev,
@@ -223,39 +200,40 @@ const CreateTicketModal: React.FC<Props> = ({
             }));
           }
         } else if (userRole === "ADMIN") {
-          // For ADMIN, show all agents
           const allAgents = allUsers.filter((u) => isAgent(u));
-          console.log("All agents for admin:", allAgents);
+          console.log("All agents for admin:", allAgents.length);
           setAgents(allAgents);
         } else {
           setAgents([]);
         }
+        
+        hasLoadedRef.current = true;
       } catch (err) {
         console.error("Error loading data:", err);
         showToast("Failed to load data. Please refresh the page.", "error");
       }
     };
 
-    if (show) loadData();
-  }, [show, userData, userRole]);
+    loadData();
+  }, [show, userRole, userData, showToast]);
 
   // ======================
   // HANDLE INPUT
   // ======================
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      setFormData((prev) => ({
+        ...prev,
+        [e.target.name]: e.target.value,
+      }));
+    },
+    []
+  );
 
   // ======================
   // SUBMIT
   // ======================
-  const handleSubmit = async () => {
-    // Validation
+  const handleSubmit = useCallback(async () => {
     if (!formData.customer_name) {
       showToast("Customer name is required", "error");
       return;
@@ -272,7 +250,6 @@ const CreateTicketModal: React.FC<Props> = ({
     try {
       setLoading(true);
 
-      // Prepare payload for API
       const payload: any = {
         title: formData.title,
         description: formData.description,
@@ -284,7 +261,6 @@ const CreateTicketModal: React.FC<Props> = ({
         assigned_by: userData.id,
       };
 
-      // Helper to check user role
       const hasRole = (roleName: string): boolean => {
         if (userData.role_name) {
           return userData.role_name.toUpperCase() === roleName.toUpperCase();
@@ -300,12 +276,10 @@ const CreateTicketModal: React.FC<Props> = ({
         return false;
       };
 
-      // Get user's team ID
       const getUserTeamId = (): number | null => {
         return userData.team_id || userData.team || null;
       };
 
-      // Handle assignment based on user role
       if (hasRole("ADMIN")) {
         if (mode === "agent") {
           if (!formData.assigned_to) {
@@ -329,15 +303,12 @@ const CreateTicketModal: React.FC<Props> = ({
           return;
         }
         payload.assigned_to = parseInt(formData.assigned_to);
-        // Team lead's team is automatically set
         const teamId = getUserTeamId();
         if (teamId) {
           payload.team = parseInt(String(teamId));
         }
       } else if (hasRole("AGENT")) {
-        // For AGENT role - auto-assign to themselves
         payload.assigned_to = userData.id;
-        // If agent has a team, also assign to that team
         const teamId = getUserTeamId();
         if (teamId) {
           payload.team = teamId;
@@ -362,16 +333,13 @@ const CreateTicketModal: React.FC<Props> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData, mode, userData, showToast, onSuccess, onHide]);
 
-  if (!show) return null;
-
-  const getUserDisplayName = (user: User) => {
+  const getUserDisplayName = useCallback((user: User) => {
     return user.full_name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || user.email;
-  };
+  }, []);
 
-  // Helper to check user role for rendering
-  const hasRoleForRender = (roleName: string): boolean => {
+  const hasRoleForRender = useCallback((roleName: string): boolean => {
     if (userData.role_name) {
       return userData.role_name.toUpperCase() === roleName.toUpperCase();
     }
@@ -384,7 +352,12 @@ const CreateTicketModal: React.FC<Props> = ({
       }
     }
     return false;
-  };
+  }, [userData]);
+
+  // ======================
+  // IMPORTANT: Return statement MUST be after all hooks
+  // ======================
+  if (!show) return null;
 
   return (
     <>

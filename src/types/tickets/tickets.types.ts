@@ -75,6 +75,27 @@ export interface Customer {
 }
 
 // =====================
+// TIMELINE ITEM TYPE - ADD THIS
+// =====================
+export interface TimelineItem {
+  id: number;
+  date: string;
+  action: string;
+  message: string;
+  type: 'info' | 'comment' | 'update' | 'resolution';
+  comment: string | null;
+  user: string;
+  user_role: string | null;
+  is_comment: boolean;
+  old_status: string | null;
+  new_status: string | null;
+  old_priority: string | null;
+  new_priority: string | null;
+  old_assignee: string | null;
+  new_assignee: string | null;
+}
+
+// =====================
 // MAIN TICKET TYPE
 // =====================
 export interface Ticket {
@@ -94,6 +115,7 @@ export interface Ticket {
   customer_phone: string;
   customer_email: string;
   customer?: Customer;
+  customer_detail?: Customer;
   
   // Assignment information
   assigned_to?: number | null;
@@ -114,8 +136,9 @@ export interface Ticket {
   attachments: TicketAttachment[];
   
   // History/Timeline
+  timeline?: TimelineItem[];
   history?: TicketHistory[];
-  updates?: TicketUpdate[];
+  lastUpdate?: string;
 }
 
 // =====================
@@ -152,7 +175,7 @@ export interface TicketHistory {
 }
 
 // =====================
-// TICKET UPDATE TYPE (for frontend timeline)
+// TICKET UPDATE TYPE
 // =====================
 export type UpdateType = 'info' | 'update' | 'resolution' | 'comment';
 
@@ -286,63 +309,50 @@ export const CHANNEL_CONFIG: Record<TicketChannel, { label: string; icon: string
 // =====================
 // HELPER FUNCTIONS
 // =====================
-
-// Get status label
 export const getStatusLabel = (status: TicketStatus): string => {
   return STATUS_CONFIG[status]?.label ?? status;
 };
 
-// Get status color
 export const getStatusColor = (status: TicketStatus): string => {
   return STATUS_CONFIG[status]?.color ?? 'bg-gray-100 text-gray-800';
 };
 
-// Get priority label
 export const getPriorityLabel = (priority: TicketPriority): string => {
   return PRIORITY_CONFIG[priority]?.label ?? priority;
 };
 
-// Get priority color
 export const getPriorityColor = (priority: TicketPriority): string => {
   return PRIORITY_CONFIG[priority]?.color ?? 'bg-gray-100 text-gray-800';
 };
 
-// Get channel label
 export const getChannelLabel = (channel: TicketChannel): string => {
   return CHANNEL_CONFIG[channel]?.label ?? channel;
 };
 
-// Get channel icon
 export const getChannelIcon = (channel: TicketChannel): string => {
   return CHANNEL_CONFIG[channel]?.icon ?? '📋';
 };
 
-// Safe helper to get channel config with fallback for unknown values
 export const getChannelConfig = (channel: string): { label: string; icon: string } => {
   return CHANNEL_CONFIG[channel as TicketChannel] ?? { label: channel, icon: '📋' };
 };
 
-// Safe helper to get status config with fallback
 export const getStatusConfig = (status: string): { label: string; color: string } => {
   return STATUS_CONFIG[status as TicketStatus] ?? { label: status, color: 'bg-gray-100 text-gray-800' };
 };
 
-// Safe helper to get priority config with fallback
 export const getPriorityConfig = (priority: string): { label: string; color: string } => {
   return PRIORITY_CONFIG[priority as TicketPriority] ?? { label: priority, color: 'bg-gray-100 text-gray-800' };
 };
 
-// Type guard to check if a value is a valid TicketStatus
 export const isValidTicketStatus = (status: string): status is TicketStatus => {
   return Object.keys(STATUS_CONFIG).includes(status);
 };
 
-// Type guard to check if a value is a valid TicketPriority
 export const isValidTicketPriority = (priority: string): priority is TicketPriority => {
   return Object.keys(PRIORITY_CONFIG).includes(priority);
 };
 
-// Type guard to check if a value is a valid TicketChannel
 export const isValidTicketChannel = (channel: string): channel is TicketChannel => {
   return Object.keys(CHANNEL_CONFIG).includes(channel);
 };

@@ -65,6 +65,18 @@ export const inprogressTickets = () =>
 
 
 export const trackTickets = (ticket_number) => {
-  // Fixed URL: removed duplicate /tickets/
+  
   return publicApi.get(`/tickets/tickets/track/?ticket_number=${ticket_number}`);
+};
+
+
+// api/ticketApi.ts
+export const getOverdueTickets = async () => {
+    // Fallback to getTickets since the backend endpoint doesn't exist
+    return getTickets();
+};
+
+export const getAgingTickets = async () => {
+    // Fallback to getTickets
+    return getTickets();
 };

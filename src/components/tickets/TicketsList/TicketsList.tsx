@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useTickets } from '../../../hooks/tickets/useTickets';
-import { TicketsHeader } from './components/TicketsHeader';
 import { TicketsFilters } from './components/TicketsFilters';
 import { TicketsTable } from './components/TicketsTable';
 import { TicketsPagination } from './components/TicketsPagination';
@@ -117,7 +116,7 @@ export const TicketsList: React.FC = () => {
   // ======================
   const [showCreate, setShowCreate] = useState(false);
   const [showView, setShowView] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
   const [showDelete, setShowDelete] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -146,7 +145,7 @@ export const TicketsList: React.FC = () => {
   // VIEW
   // ======================
   const handleView = useCallback((ticket: Ticket) => {
-    setSelectedTicket(ticket);
+    setSelectedTicketId(ticket.id);
     setShowView(true);
   }, []);
 
@@ -369,10 +368,10 @@ export const TicketsList: React.FC = () => {
 
       <TicketViewModal
         show={showView}
-        ticket={selectedTicket}
+        ticketId={selectedTicketId}
         onHide={() => {
           setShowView(false);
-          setSelectedTicket(null);
+          setSelectedTicketId(null);
         }}
         onRefresh={refresh}
       />
