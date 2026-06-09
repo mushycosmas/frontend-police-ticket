@@ -3,18 +3,19 @@ import { CustomerList } from "../../components/customer/CustomerList";
 import TicketViewModal from "../../components/tickets/TicketViewModal";
 
 export const Customers: React.FC = () => {
-  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [showTicketModal, setShowTicketModal] = useState(false);
 
   const handleViewTicket = (ticket: any) => {
-    setSelectedTicket(ticket);
+    setSelectedTicketId(ticket.id);
     setShowTicketModal(true);
   };
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   
   // Check if user has admin or team lead access
-  if (user.role !== "ADMIN" && user.role !== "TEAM_LEAD") {
+  const userRole = user.role_name || user.role;
+  if (userRole !== "ADMIN" && userRole !== "TEAM_LEAD") {
     return (
       <div className="p-6">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -42,10 +43,14 @@ export const Customers: React.FC = () => {
       {/* Ticket View Modal */}
       <TicketViewModal
         show={showTicketModal}
-        ticket={selectedTicket}
+        ticketId={selectedTicketId}
         onHide={() => {
           setShowTicketModal(false);
-          setSelectedTicket(null);
+          setSelectedTicketId(null);
+        }}
+        onRefresh={() => {
+          // Optional: Refresh customer list or ticket data if needed
+          console.log("Ticket modal closed");
         }}
       />
     </div>
