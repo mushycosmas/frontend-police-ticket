@@ -44,7 +44,8 @@ import SystemLogs from "../pages/system/SystemLogs";
 
 /* Reports */
 import Analytics from "../pages/reports/Analytics";
-
+import { Profile } from "../pages/profile/Profile";
+import { ChangePassword } from "../pages/profile/ChangePassword";
 /* ========== ROUTER CONFIGURATION ========== */
 const router = createBrowserRouter([
   {
@@ -271,22 +272,38 @@ const router = createBrowserRouter([
       },
 
       /* ========== SYSTEM ========== */
-      {
-        path: "/settings",
-        element: (
-          <ProtectedRoute allowedPermissions={["view_settings"]}>
-            <Settings />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/logs",
-        element: (
-          <ProtectedRoute allowedPermissions={["view_logs"]}>
-            <SystemLogs />
-          </ProtectedRoute>
-        ),
-      },
+     {
+      path: "/settings",
+      element: (
+        <ProtectedRoute allowedPermissions={["view_settings"]}>
+          <Settings />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/logs",
+      element: (
+        <ProtectedRoute allowedPermissions={["view_logs"]}>
+          <SystemLogs />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/profile",
+      element: (
+        <ProtectedRoute allowedPermissions={["view_profile"]}>
+          <Profile />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/change-password",
+      element: (
+        <ProtectedRoute allowedPermissions={["view_profile"]}>
+          <ChangePassword />
+        </ProtectedRoute>
+      ),
+    },
     ],
   },
 

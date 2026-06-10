@@ -103,7 +103,7 @@ export const Login = () => {
       <div className="w-full max-w-md">
         
         {/* HEADER / BRAND SECTION */}
-        {/* HEADER / BRAND SECTION */}
+    
         <div className="bg-gradient-to-r from-brand-primary to-brand-light rounded-2xl p-8 mb-6 text-center shadow-xl hover:shadow-2xl transition-all duration-300">
           <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/30">
             <span className="text-white font-black text-4xl">T</span>

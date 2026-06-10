@@ -273,20 +273,38 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* USER SECTION */}
-      <div className="px-4 py-4 border-t border-brand-light">
-        <div className="mb-3">
-          <p className="text-white text-sm font-medium">
-            {`${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
-              user?.username ||
-              "Guest"}
-          </p>
-          <p className="text-blue-300 text-xs">
-            {userRole}
-          </p>
-        </div>
+      {/* USER SECTION */}
+<div className="px-4 py-4 border-t border-brand-light">
 
-        <LogoutButton />
-      </div>
+  <div className="mb-3">
+    <p className="text-white text-sm font-medium">
+      {`${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
+        user?.username ||
+        "Guest"}
+    </p>
+
+    <p className="text-blue-300 text-xs">
+      {userRole}
+    </p>
+  </div>
+
+  {/* QUICK ACCOUNT ACTIONS */}
+  <div className="flex flex-col gap-1 mb-3">
+    <NavLink
+      to="/profile"
+      className="text-xs text-blue-200 hover:text-white"
+    >
+      👤 My Profile
+    </NavLink>
+    <NavLink
+      to="/change-password"
+      className="text-xs text-blue-200 hover:text-white"
+    >
+      🔒 Change Password
+    </NavLink>
+  </div>
+  <LogoutButton />
+</div>
 
     </aside>
   );
