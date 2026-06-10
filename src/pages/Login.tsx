@@ -103,16 +103,17 @@ export const Login = () => {
       <div className="w-full max-w-md">
         
         {/* HEADER / BRAND SECTION */}
-        <div className="bg-gradient-to-r from-brand-primary to-brand-secondary rounded-2xl p-8 mb-4 text-center shadow-xl transform transition-all duration-300 hover:scale-105">
-          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-brand-primary font-black text-4xl">T</span>
+        {/* HEADER / BRAND SECTION */}
+        <div className="bg-gradient-to-r from-brand-primary to-brand-light rounded-2xl p-8 mb-6 text-center shadow-xl hover:shadow-2xl transition-all duration-300">
+          <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/30">
+            <span className="text-white font-black text-4xl">T</span>
           </div>
 
-          <h1 className="text-white text-2xl font-bold tracking-tight">
+          <h1 className="text-white text-3xl font-bold tracking-tight">
             TSS Portal
           </h1>
 
-          <p className="text-blue-200 text-sm mt-1">
+          <p className="text-white/80 text-sm mt-2">
             Ticket Support System
           </p>
         </div>
@@ -189,16 +190,6 @@ export const Login = () => {
             </Button>
 
           </form>
-
-          {/* DEMO CREDENTIALS (Optional - for testing) */}
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-400 text-center">
-              Demo credentials:
-            </p>
-            <p className="text-xs text-gray-400 text-center mt-1">
-              Username: admin@example.com / Password: admin123
-            </p>
-          </div>
 
           {/* FOOTER */}
           <p className="text-center text-xs text-gray-400 mt-6">
