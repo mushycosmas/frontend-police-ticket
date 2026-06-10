@@ -86,7 +86,7 @@ export const Profile = () => {
           <div className="bg-white border rounded-lg p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div>
-              <p className="text-xs text-gray-500">Username</p>
+              <p className="text-xs text-gray-500">Check Number</p>
               <p className="font-medium">{user.username}</p>
             </div>
 
