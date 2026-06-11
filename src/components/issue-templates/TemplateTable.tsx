@@ -28,28 +28,9 @@ export const TemplateTable: React.FC<TemplateTableProps> = ({
   // ======================
   // PRIORITY SAFE HANDLER
   // ======================
-  const getPriorityName = (template: IssueTemplate): string => {
-    const priority: any = template.suggested_priority;
-
-    if (!priority) return "—";
-
-    // backend FK object
-    if (typeof priority === "object" && priority?.name) {
-      return priority.name;
-    }
-
-    // string fallback
-    if (typeof priority === "string") {
-      return priority.charAt(0).toUpperCase() + priority.slice(1);
-    }
-
-    // numeric fallback
-    if (typeof priority === "number") {
-      return `Priority ${priority}`;
-    }
-
-    return "—";
-  };
+const getPriorityName = (template: IssueTemplate): string => {
+  return template.priority_name || "—";
+};
 
   const getPriorityColor = (name: string): string => {
     const n = name.toLowerCase();
