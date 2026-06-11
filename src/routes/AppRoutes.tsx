@@ -20,8 +20,6 @@ import { Dashboard } from "../pages/Dashboard";
 import Tickets from "../pages/Tickets";
 import { Customers } from "../pages/customers/Customers";
 
-import { CreateTicket } from "../pages/CreateTicket";
-import { QAReview } from "../pages/QAReview";
 import { Reports } from "../pages/Reports";
 import { Settings } from "../pages/Settings";
 import Permissions from "../pages/admin/Permissions";
@@ -38,6 +36,7 @@ import Regions from "../pages/admin/locations/Regions";
 import Districts from "../pages/admin/locations/Districts";
 import Wards from "../pages/admin/locations/Wards";
 import Streets from "../pages/admin/locations/Streets";
+import { Channels } from "../pages/admin/channels/Channels";
 
 /* System */
 import SystemLogs from "../pages/system/SystemLogs";
@@ -46,6 +45,7 @@ import SystemLogs from "../pages/system/SystemLogs";
 import Analytics from "../pages/reports/Analytics";
 import { Profile } from "../pages/profile/Profile";
 import { ChangePassword } from "../pages/profile/ChangePassword";
+import { IssueTemplateManager } from "../pages/admin/issue-template/IssueTemplate";
 /* ========== ROUTER CONFIGURATION ========== */
 const router = createBrowserRouter([
   {
@@ -84,14 +84,7 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      {
-        path: "/tickets/create",
-        element: (
-          <ProtectedRoute allowedPermissions={["create_ticket"]}>
-            <CreateTicket />
-          </ProtectedRoute>
-        ),
-      },
+      
       {
         path: "/tickets/my",
         element: (
@@ -160,14 +153,7 @@ const router = createBrowserRouter([
       },
 
       /* ========== QA ========== */
-      {
-        path: "/qa",
-        element: (
-          <ProtectedRoute allowedPermissions={["qa_review"]}>
-            <QAReview />
-          </ProtectedRoute>
-        ),
-      },
+      
 
       /* ========== ADMINISTRATION ========== */
       {
@@ -194,6 +180,8 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+
+      
       {
         path: "/admin/teams",
         element: (
@@ -209,12 +197,27 @@ const router = createBrowserRouter([
             <Categories />
           </ProtectedRoute>
         ),
+      }, {
+        path: "/admin/channels",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_channel"]}>
+            <Channels />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/admin/priorities",
         element: (
           <ProtectedRoute allowedPermissions={["view_priority"]}>
             <Priorities />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/issue-templates",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_issuetemplate"]}>
+            <IssueTemplateManager />
           </ProtectedRoute>
         ),
       },

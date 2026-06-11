@@ -81,7 +81,10 @@ const menuGroups: MenuGroup[] = [
       { to: "/admin/users", label: "Users", permission: "view_user" },
       { to: "/admin/teams", label: "Teams", permission: "view_team" },
       { to: "/admin/categories", label: "Categories", permission: "view_category" },
+      { to: "/admin/channels", label: "channels", permission: "view_channel" },
       { to: "/admin/priorities", label: "Priorities", permission: "view_priority" },
+      { to: "/admin/issue-templates", label: "Issue Templates", permission: "view_issuetemplate" },
+      
     ],
   },
   {

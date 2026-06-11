@@ -1,7 +1,7 @@
 // src/components/users/HRMISUserModal.tsx
 import React, { useState, useEffect } from "react";
-import { Team } from "../../types/team.types";
-import { Role } from "../../types/roles.types";
+import { getTeams } from "../../api/teamApi";
+import { getRoles } from "../../api/roleApi";
 
 /* =========================
    TYPES
@@ -13,20 +13,42 @@ interface HRMISUserInfo {
   full_name: string;
   email: string;
   rank: string;
-  profile_picture?: string | null;
   department?: string;
   phone?: string;
+}
+
+interface Team {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+interface Role {
+  id: number;
+  name: string;
+  description?: string;
 }
 
 interface HRMISUserModalProps {
   show: boolean;
   onHide: () => void;
-  teams: Team[];
-  roles: Role[];
+  teams?: Team[];
+  roles?: Role[];
   onSuccess: () => void;
   onSearch: (checkno: string) => Promise<any>;
   onCreateUser: (payload: any) => Promise<any>;
 }
+
+/* =========================
+   HELPER: Normalize response
+========================= */
+const normalizeResponse = (res: any): any[] => {
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.results)) return res.data.results;
+  if (Array.isArray(res?.results)) return res.results;
+  if (Array.isArray(res)) return res;
+  return [];
+};
 
 /* =========================
    COMPONENT
@@ -34,8 +56,8 @@ interface HRMISUserModalProps {
 export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
   show,
   onHide,
-  teams,
-  roles,
+  teams: propTeams,
+  roles: propRoles,
   onSuccess,
   onSearch,
   onCreateUser,
@@ -47,6 +69,52 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
   const [searching, setSearching] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [hrmisUser, setHrmisUser] = useState<HRMISUserInfo | null>(null);
+  
+  // Local state for teams and roles if not provided as props
+  const [localTeams, setLocalTeams] = useState<Team[]>([]);
+  const [localRoles, setLocalRoles] = useState<Role[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+
+  // Use props if provided, otherwise use local state
+  const teams = propTeams && propTeams.length > 0 ? propTeams : localTeams;
+  const roles = propRoles && propRoles.length > 0 ? propRoles : localRoles;
+
+  /* =========================
+     LOAD TEAMS AND ROLES (FALLBACK)
+  ========================= */
+  useEffect(() => {
+    if (!show) return;
+    
+    if (propTeams && propTeams.length > 0 && propRoles && propRoles.length > 0) {
+      console.log("Using teams/roles from props:", { teams: propTeams.length, roles: propRoles.length });
+      return;
+    }
+    
+    const loadData = async () => {
+      setLoadingData(true);
+      try {
+        if (!propTeams || propTeams.length === 0) {
+          const teamsRes = await getTeams();
+          const teamsData = normalizeResponse(teamsRes);
+          setLocalTeams(teamsData);
+          console.log("Loaded teams locally:", teamsData.length);
+        }
+        
+        if (!propRoles || propRoles.length === 0) {
+          const rolesRes = await getRoles();
+          const rolesData = normalizeResponse(rolesRes);
+          setLocalRoles(rolesData);
+          console.log("Loaded roles locally:", rolesData);
+        }
+      } catch (err) {
+        console.error("Error loading data in HRMISModal:", err);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    
+    loadData();
+  }, [show, propTeams, propRoles]);
 
   /* =========================
      RESET
@@ -65,11 +133,20 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
      DEFAULT ROLE
   ========================= */
   useEffect(() => {
-    if (!roles?.length) return;
+    if (!roles?.length) {
+      console.log("No roles available yet");
+      return;
+    }
 
     if (selectedRoleId === null) {
-      const defaultRole = roles.find((r) => r.name === "AGENT") || roles[0];
-      if (defaultRole) setSelectedRoleId(defaultRole.id);
+      const agentRole = roles.find(
+        (r) => r.name?.toUpperCase() === "AGENT"
+      );
+      const defaultRole = agentRole || roles[0];
+      if (defaultRole) {
+        setSelectedRoleId(defaultRole.id);
+        console.log("Default role set:", defaultRole.name, "ID:", defaultRole.id);
+      }
     }
   }, [roles, selectedRoleId]);
 
@@ -106,7 +183,6 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
           full_name: fullName || `${firstName} ${lastName}`,
           email: userData.email,
           rank: userData.rank || userData.designation || "",
-          profile_picture: userData.photo || userData.profile_picture || null,
           department: userData.department || "",
           phone: userData.phoneno || userData.phone || "",
         });
@@ -122,7 +198,7 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
   };
 
   /* =========================
-     SAVE USER
+     SAVE USER - NO PROFILE PICTURE
   ========================= */
   const handleSave = async () => {
     if (!hrmisUser) {
@@ -145,6 +221,7 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
     setLocalError(null);
 
     try {
+      // ✅ NO profile_picture field here
       const userPayload = {
         username: hrmisUser.checkno,
         email: hrmisUser.email,
@@ -152,11 +229,10 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
         last_name: hrmisUser.last_name,
         full_name: hrmisUser.full_name,
         rank: hrmisUser.rank,
-        profile_picture: hrmisUser.profile_picture || null,
-        role: role.name,
+        role_id: selectedRoleId,
         team: selectedTeamId || null,
         password: "support123",
-        confirm_password: "support123",
+        password_confirm: "support123",
         is_active: true,
       };
 
@@ -238,23 +314,24 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
             </div>
           )}
 
+          {/* LOADING INDICATOR */}
+          {loadingData && (
+            <div className="text-center py-4">
+              <div className="inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-gray-500 mt-2">Loading teams and roles...</p>
+            </div>
+          )}
+
           {/* HRMIS USER INFO - Display when found */}
           {hrmisUser && (
             <div className="space-y-4 border rounded-lg overflow-hidden">
-              {/* Header with Avatar */}
+              {/* Header with Avatar - Using default avatar only */}
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b">
                 <div className="flex items-center gap-3">
-                  {hrmisUser.profile_picture ? (
-                    <img
-                      src={hrmisUser.profile_picture}
-                      alt={hrmisUser.full_name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
-                      {hrmisUser.first_name?.charAt(0) || "U"}
-                    </div>
-                  )}
+                  {/* Default avatar - no profile picture */}
+                  <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
+                    {hrmisUser.first_name?.charAt(0) || "U"}
+                  </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-800">
                       {hrmisUser.full_name}
@@ -304,12 +381,19 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
                       className="w-full border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select a role...</option>
-                      {roles.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name.replace(/_/g, " ")} {r.description && `- ${r.description}`}
-                        </option>
-                      ))}
+                      {roles && roles.length > 0 ? (
+                        roles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name?.replace(/_/g, " ") || r.name} {r.description && `- ${r.description}`}
+                          </option>
+                        ))
+                      ) : (
+                        <option disabled>Loading roles...</option>
+                      )}
                     </select>
+                    {roles.length === 0 && !loadingData && (
+                      <p className="text-xs text-red-500 mt-1">No roles loaded. Please refresh the page.</p>
+                    )}
                   </div>
 
                   <div className="mb-3">
@@ -324,7 +408,7 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
                       className="w-full border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">No Team</option>
-                      {teams.map((t) => (
+                      {teams && teams.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name}
                         </option>
@@ -348,7 +432,7 @@ export const HRMISUserModal: React.FC<HRMISUserModalProps> = ({
           )}
 
           {/* NO RESULT STATE */}
-          {!hrmisUser && !searching && !error && (
+          {!hrmisUser && !searching && !error && !loadingData && (
             <div className="bg-gray-50 rounded-lg p-8 text-center">
               <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
