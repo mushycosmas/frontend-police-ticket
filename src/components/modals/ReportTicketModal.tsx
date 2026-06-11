@@ -183,7 +183,6 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
         try {
           setLoadingChannels(true);
           const res = await getChannels();
-          // Extract data from paginated response or direct array
           let data = res.data;
           if (data?.results) data = data.results;
           if (!Array.isArray(data)) data = [];
@@ -275,52 +274,90 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   // ======================
   // SUBMIT
   // ======================
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  if (!/^\d{20}$/.test(nida) || nidaValid !== true) {
-    setError("Please enter a valid and verified 20-digit NIDA number.");
-    setLoading(false);
-    return;
-  }
-
-  try {
-    const fd = new FormData();
-    fd.append("customer_name", form.customer_name);
-    fd.append("customer_phone", form.customer_phone);
-    fd.append("customer_email", form.customer_email);
-    fd.append("channel", form.channel);
-    fd.append("street_id", form.street_id);
-    fd.append("title", form.title);
-    fd.append("description", form.description);
-    fd.append("customer_nida", form.customer_nida || nida);
-    fd.append("customer_gender", form.customer_gender || "");
-    
-    // ✅ Add template ID if selected
-    if (selectedTemplateId) {
-      fd.append("template", selectedTemplateId);
+    if (!/^\d{20}$/.test(nida) || nidaValid !== true) {
+      setError("Please enter a valid and verified 20-digit NIDA number.");
+      setLoading(false);
+      return;
     }
 
-    if (files && files.length) {
-      Array.from(files).forEach((file) => fd.append("attachments", file));
+    try {
+      const fd = new FormData();
+      fd.append("customer_name", form.customer_name);
+      fd.append("customer_phone", form.customer_phone);
+      fd.append("customer_email", form.customer_email);
+      fd.append("channel", form.channel);
+      fd.append("street_id", form.street_id);
+      fd.append("title", form.title);
+      fd.append("description", form.description);
+      fd.append("customer_nida", form.customer_nida || nida);
+      fd.append("customer_gender", form.customer_gender || "");
+      
+      if (selectedTemplateId) {
+        fd.append("template", selectedTemplateId);
+      }
+
+      if (files && files.length) {
+        Array.from(files).forEach((file) => fd.append("attachments", file));
+      }
+
+      const res = await createTicket(fd);
+      setCreatedTicketNumber(res?.data?.ticket_number);
+      setSuccess(true);
+
+      // Reset form
+      setForm({
+        customer_name: "",
+        customer_email: "",
+        customer_phone: "",
+        customer_nida: "",
+        customer_gender: "",
+        region: "",
+        district: "",
+        ward: "",
+        street_id: "",
+        channel: "",
+        title: "",
+        description: "",
+      });
+      setSelectedTemplateId("");
+      setFiles(null);
+      setCurrentStep(1);
+      setNida("");
+      setNidaValid(null);
+      setCitizenData(null);
+      setShowForm(false);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to submit ticket. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    const res = await createTicket(fd);
-    setCreatedTicketNumber(res?.data?.ticket_number);
-    setSuccess(true);
-
-    // Reset form...
-  } catch (err) {
-    // ...
-  }
-};
+  };
 
   const handleCopyTicketNumber = async () => {
     if (!createdTicketNumber) return;
     await navigator.clipboard.writeText(createdTicketNumber);
-    alert("Copied!");
+    alert("Ticket number copied!");
+  };
+
+  const handleTrackSearch = () => {
+    const phoneInput = document.getElementById('trackPhone') as HTMLInputElement;
+    const ticketInput = document.getElementById('trackTicket') as HTMLInputElement;
+    const phone = phoneInput?.value.trim();
+    const ticketNo = ticketInput?.value.trim();
+
+    if (phone) {
+      window.location.href = `/track?phone=${encodeURIComponent(phone)}`;
+    } else if (ticketNo) {
+      window.location.href = `/track?ticket=${encodeURIComponent(ticketNo)}`;
+    } else {
+      alert('Please enter either a phone number or a ticket number');
+    }
   };
 
   const isNidaVerified = nidaValid === true;
@@ -455,30 +492,52 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
         </div>
       </div>
 
-      {/* Success Modal */}
-      {success && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50">
-          <div className="bg-white p-6 rounded-xl text-center animate-fade-in-up">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-green-600 text-xl font-bold">Ticket Created 🎉</h2>
-            <p className="mt-2">Ticket Number:</p>
-            <div className="text-2xl font-bold text-blue-600">{createdTicketNumber}</div>
-            <button onClick={handleCopyTicketNumber} className="mt-2 text-blue-600 underline">
-              Copy
-            </button>
-            <button
-              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
-              onClick={() => setSuccess(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Enhanced Success Modal with Ticket Search */}
+     {success && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+    <div className="bg-white p-6 rounded-xl text-center animate-fade-in-up max-w-md w-full mx-4">
+      {/* Success icon */}
+      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <h2 className="text-green-600 text-xl font-bold">Ticket Created 🎉</h2>
+      <p className="mt-2">Your ticket number:</p>
+      <div className="text-2xl font-bold text-blue-600 break-all">{createdTicketNumber}</div>
+      <button onClick={handleCopyTicketNumber} className="mt-2 text-blue-600 underline text-sm">
+        Copy number
+      </button>
+
+      {/* Divider */}
+      <div className="my-6 border-t border-gray-200"></div>
+
+      {/* Informational message about tracking */}
+      <p className="text-sm text-gray-700 mb-2">You can check the status of your ticket anytime using:</p>
+      <ul className="text-sm text-gray-600 space-y-1 mb-4">
+        <li>📞 Your registered phone number</li>
+        <li>🆔 Your NIDA number</li>
+        <li>🎫 Your ticket number (shown above)</li>
+      </ul>
+      <button
+        onClick={() => {
+          window.location.href = "/track";
+        }}
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition text-sm font-medium"
+      >
+        Track My Ticket
+      </button>
+
+      {/* Close button */}
+      <button
+        className="mt-3 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg w-full transition text-sm"
+        onClick={() => setSuccess(false)}
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 };

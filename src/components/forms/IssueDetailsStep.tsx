@@ -1,117 +1,80 @@
+// src/components/forms/IssueDetailsStep.tsx
 import React from "react";
+import { SearchableSelect } from "./SearchableSelect";
+import { IssueTemplateSelect } from "./IssueTemplateSelect";
 
 interface IssueDetailsStepProps {
   title: string;
   description: string;
   channels: { id: number; name: string }[];
-  templates: { id: number; name: string; description: string }[];
   selectedChannel: string;
   selectedTemplate: string;
   onChange: (field: string, value: string) => void;
   onTemplateSelect: (templateId: string) => void;
   loadingChannels?: boolean;
-  loadingTemplates?: boolean;
 }
 
 export const IssueDetailsStep: React.FC<IssueDetailsStepProps> = ({
   title,
   description,
   channels,
-  templates,
   selectedChannel,
   selectedTemplate,
   onChange,
   onTemplateSelect,
   loadingChannels = false,
-  loadingTemplates = false,
 }) => {
-  const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const templateId = e.target.value;
-    onTemplateSelect(templateId);
-  };
-
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center mb-6">
-        <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg mr-4">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-md mr-4">
           2
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">Issue Details</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Issue Details</h2>
       </div>
 
-      <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-6">
-        {/* Channel Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Channel <span className="text-red-500">*</span>
-          </label>
-          {loadingChannels ? (
-            <div className="text-gray-500">Loading channels...</div>
-          ) : (
-            <select
-              value={selectedChannel}
-              onChange={(e) => onChange("channel", e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="">-- Select channel --</option>
-              {channels.map((ch) => (
-                <option key={ch.id} value={ch.id}>
-                  {ch.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+        {/* Channel - searchable select */}
+        <SearchableSelect
+          options={channels}
+          value={selectedChannel}
+          onChange={(val) => onChange("channel", val)}
+          label="Channel"
+          required={true}
+          loading={loadingChannels}
+          placeholder="Search channel by name..."
+          helpText="Select the source of this report (e.g., HRMIS, Email)."
+        />
 
-        {/* Template Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Issue Template (Optional)
-          </label>
-          {loadingTemplates ? (
-            <div className="text-gray-500">Loading templates...</div>
-          ) : (
-            <select
-              value={selectedTemplate}
-              onChange={handleTemplateChange}
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">-- None / Manual entry --</option>
-              {templates.map((tmpl) => (
-                <option key={tmpl.id} value={tmpl.id}>
-                  {tmpl.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        {/* Template - searchable with API */}
+        <IssueTemplateSelect value={selectedTemplate} onChange={onTemplateSelect} />
 
         {/* Title */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="space-y-1">
+          <label className="block text-sm font-semibold text-gray-700">
             Title <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => onChange("title", e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all duration-200 px-4 py-2.5 shadow-sm"
             placeholder="Brief summary of the issue"
             required
           />
         </div>
 
         {/* Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Description
+        <div className="space-y-1">
+          <label className="block text-sm font-semibold text-gray-700">
+            Description <span className="text-gray-400 text-xs font-normal ml-1">(Optional)</span>
           </label>
           <textarea
             value={description}
             onChange={(e) => onChange("description", e.target.value)}
             rows={4}
-            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all duration-200 px-4 py-2.5 shadow-sm resize-y"
             placeholder="Detailed description of the problem..."
           />
         </div>
