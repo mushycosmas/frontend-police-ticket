@@ -43,9 +43,19 @@ export const closeTicket = (id, comment = '') =>
 
  
 
-export const assignTicket = (id, data) =>
-    api.post(`/tickets/tickets/${id}/assign/`, data);
+// export const assignTicket = (id, data) =>
+//     api.post(`/tickets/tickets/${id}/assign/`, data);
 
+export const assignTicket = (id, data) => {
+  if (!data?.type || !data?.id) {
+    throw new Error("type and id are required for assignment");
+  }
+
+  return api.post(`/tickets/tickets/${id}/assign/`, {
+    type: data.type,
+    id: data.id,
+  });
+};
 
 export const getMyTickets = () =>
     api.get("/tickets/tickets/?filter=my");

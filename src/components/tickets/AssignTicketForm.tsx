@@ -123,41 +123,95 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
 
-    try {
-      let payload = {};
-      let assignedTo = "";
-      
-      if (assignType === "agent" && selectedAgent) {
-        const agent = allUsers.find(u => u.id === parseInt(selectedAgent));
-        assignedTo = agent?.full_name || agent?.username || "Agent";
-        payload = { assigned_to: parseInt(selectedAgent) };
-        await assignTicket(ticketId, payload);
-        showToast(`✓ Ticket assigned to ${assignedTo} successfully!`, "success");
-      } else if (assignType === "team" && selectedTeam && user.role === "ADMIN") {
-        const team = teams.find(t => t.id === parseInt(selectedTeam));
-        assignedTo = team?.name || "Team";
-        payload = { team_id: parseInt(selectedTeam) };
-        await assignTicket(ticketId, payload);
-        showToast(`✓ Ticket assigned to ${assignedTo} team successfully!`, "success");
+  const getRole = () => (user.role_name || user.role || "").toString().toUpperCase();
+  const currentRole = getRole();
+
+  console.log("=== ASSIGNMENT DEBUG ===");
+  console.log("Current Role:", currentRole);
+  console.log("Assign Type:", assignType);
+  console.log("Selected Agent:", selectedAgent);
+  console.log("Selected Team:", selectedTeam);
+  console.log("User object:", user);
+
+  try {
+    let payload: any = {};
+
+    // =========================
+    // ADMIN
+    // =========================
+    if (currentRole === "ADMIN") {
+      if (assignType === "agent") {
+        if (!selectedAgent) {
+          showToast("Select an agent", "error");
+          setLoading(false);
+          return;
+        }
+        payload = {
+          type: "agent",
+          id: parseInt(selectedAgent),
+        };
+      } else {
+        if (!selectedTeam) {
+          showToast("Select a team", "error");
+          setLoading(false);
+          return;
+        }
+        payload = {
+          type: "team",
+          id: parseInt(selectedTeam),
+        };
       }
-      
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-        if (onClose) onClose();
-      }, 1500);
-    } catch (error: any) {
-      console.error("Assignment failed:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Failed to assign ticket";
-      showToast(`✗ ${errorMessage}`, "error");
-    } finally {
-      setLoading(false);
     }
-  };
+    // =========================
+    // TEAM LEAD
+    // =========================
+    else if (currentRole === "TEAM_LEAD") {
+      if (!selectedAgent) {
+        showToast("Select an agent from your team", "error");
+        setLoading(false);
+        return;
+      }
+      payload = {
+        type: "agent",
+        id: parseInt(selectedAgent),
+      };
+    }
+    // =========================
+    // AGENT
+    // =========================
+    else if (currentRole === "AGENT") {
+      payload = {
+        type: "agent",
+        id: user.id,
+      };
+    }
+
+    console.log("Final Payload:", payload);
+    const response = await assignTicket(ticketId, payload);
+    console.log("API Response:", response);
+
+    showToast("✓ Ticket assigned successfully!", "success");
+    setTimeout(() => {
+      onSuccess?.();
+      onClose?.();
+    }, 1200);
+
+  } catch (error: any) {
+    console.error("Assignment failed:", error);
+    console.error("Error response data:", error.response?.data);
+    showToast(
+      `✗ ${error.response?.data?.message || error.message || "Failed to assign ticket"}`,
+      "error"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (loadingData) {
     return (
