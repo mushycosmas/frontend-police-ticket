@@ -40,11 +40,11 @@ export const IssueDetailsStep: React.FC<IssueDetailsStepProps> = ({
           options={channels}
           value={selectedChannel}
           onChange={(val) => onChange("channel", val)}
-          label="Channel"
+          label="Select Sources"
           required={true}
           loading={loadingChannels}
-          placeholder="Search channel by name..."
-          helpText="Select the source of this report (e.g., HRMIS, Email)."
+          placeholder="Search source by name..."
+          helpText="Select the source of this report (e.g.Polisi, lormis, pcc, cewer, driving school)."
         />
 
         {/* Template - searchable with API */}

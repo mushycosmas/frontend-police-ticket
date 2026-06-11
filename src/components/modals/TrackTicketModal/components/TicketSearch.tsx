@@ -19,11 +19,11 @@ export const TicketSearch: React.FC<TicketSearchProps> = ({
       <div className="flex gap-3 items-end">
         <div className="flex-1">
           <Input 
-            label="Ticket Tracking ID" 
+            label="Search by Ticket Number, Phone, or NIDA" 
             variant="underline"
             value={trackId} 
             onChange={(e) => setTrackId(e.target.value)} 
-            placeholder="e.g., TKT-12345678 or TKT-ABCD1234"
+            placeholder="e.g., TKT-12345678, 0712345678, or 1990010112345678"
             onKeyPress={(e) => e.key === 'Enter' && onTrack()}
             className="bg-white"
           />
@@ -33,7 +33,7 @@ export const TicketSearch: React.FC<TicketSearchProps> = ({
           onClick={onTrack}
           disabled={loading}
         >
-          {loading ? 'Tracking...' : 'Track Ticket'}
+          {loading ? 'Searching...' : 'Search Ticket'}
         </button>
       </div>
     </div>
