@@ -1,4 +1,4 @@
-import api from "./axios";
+import publicApi from "./publicApi";
 
 // ======================
 // TYPES
@@ -78,19 +78,19 @@ export interface PaginatedResponse<T> {
 
 // GET ALL
 export const getIssueTemplates = () =>
-  api.get<PaginatedResponse<IssueTemplate>>(
+  publicApi.get<PaginatedResponse<IssueTemplate>>(
     "/tickets/issue-templates/"
   );
 
 // GET ONE
 export const getIssueTemplate = (id: number) =>
-  api.get<IssueTemplate>(
+  publicApi.get<IssueTemplate>(
     `/tickets/issue-templates/${id}/`
   );
 
 // CREATE
 export const createIssueTemplate = (data: IssueTemplateCreate) =>
-  api.post<IssueTemplate>(
+  publicApi.post<IssueTemplate>(
     "/tickets/issue-templates/",
     data
   );
@@ -100,11 +100,11 @@ export const updateIssueTemplate = (
   id: number,
   data: IssueTemplateUpdate
 ) =>
-  api.patch<IssueTemplate>(
+  publicApi.patch<IssueTemplate>(
     `/tickets/issue-templates/${id}/`,
     data
   );
 
 // DELETE
 export const deleteIssueTemplate = (id: number) =>
-  api.delete(`/tickets/issue-templates/${id}/`);
+  publicApi.delete(`/tickets/issue-templates/${id}/`);

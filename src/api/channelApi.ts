@@ -1,4 +1,4 @@
-import api from "./axios";
+import publicApi from "./publicApi";
 
 // =========================
 // TYPE
@@ -12,24 +12,24 @@ export interface Channel {
 }
 
 // Get all channels
-export const getChannels = () => api.get("/channels/channels/");
+export const getChannels = () => publicApi.get("/channels/channels/");
 
 // Get single channel by id
 export const getChannel = (id: number) =>
-  api.get(`/channels/channels/${id}/`);
+  publicApi.get(`/channels/channels/${id}/`);
 
 // Create channel
 export const createChannel = (data: any) =>
-  api.post("/channels/channels/", data);
+  publicApi.post("/channels/channels/", data);
 
 // Update channel
 export const updateChannel = (id: number, data: any) =>
-  api.put(`/channels/channels/${id}/`, data);
+  publicApi.put(`/channels/channels/${id}/`, data);
 
 // Patch channel
 export const patchChannel = (id: number, data: any) =>
-  api.patch(`/channels/channels/${id}/`, data);
+  publicApi.patch(`/channels/channels/${id}/`, data);
 
 // Delete channel
 export const deleteChannel = (id: number) =>
-  api.delete(`/channels/channels/${id}/`);
+  publicApi.delete(`/channels/channels/${id}/`);

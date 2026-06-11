@@ -18,15 +18,11 @@ interface ReporterInfoStepProps {
     customer_name: string;
     customer_phone: string;
     customer_email: string;
-
-    street_id: string;  // CHANGED from street to street_id
-
-    // UI ONLY (NOT SAVED TO BACKEND - used for cascading selects)
+    street_id: string;
     region: string;
     district: string;
     ward: string;
   };
-
   onChange: (field: string, value: string) => void;
 }
 
@@ -39,28 +35,18 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
   const [wards, setWards] = useState<Option[]>([]);
   const [streets, setStreets] = useState<Option[]>([]);
 
-  // ======================
-  // LOAD REGIONS
-  // ======================
   useEffect(() => {
-    getRegions().then((res: any) => {
-      setRegions(res.data || []);
-    });
+    getRegions().then((res: any) => setRegions(res.data || []));
   }, []);
 
-  // ======================
-  // LOAD DISTRICTS (UI ONLY)
-  // ======================
   useEffect(() => {
     if (!form.region) {
       setDistricts([]);
       return;
     }
-
     onChange("district", "");
     onChange("ward", "");
-    onChange("street_id", "");  // CHANGED from street to street_id
-
+    onChange("street_id", "");
     getDistricts().then((res: any) => {
       const filtered = (res.data || []).filter(
         (d: any) => String(d.region) === String(form.region)
@@ -69,18 +55,13 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
     });
   }, [form.region]);
 
-  // ======================
-  // LOAD WARDS (UI ONLY)
-  // ======================
   useEffect(() => {
     if (!form.district) {
       setWards([]);
       return;
     }
-
     onChange("ward", "");
-    onChange("street_id", "");  // CHANGED from street to street_id
-
+    onChange("street_id", "");
     getWards().then((res: any) => {
       const filtered = (res.data || []).filter(
         (w: any) => String(w.district) === String(form.district)
@@ -89,17 +70,12 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
     });
   }, [form.district]);
 
-  // ======================
-  // LOAD STREETS (ONLY SAVED FIELD)
-  // ======================
   useEffect(() => {
     if (!form.ward) {
       setStreets([]);
       return;
     }
-
-    onChange("street_id", "");  // CHANGED from street to street_id
-
+    onChange("street_id", "");
     getStreets().then((res: any) => {
       const filtered = (res.data || []).filter(
         (s: any) => String(s.ward) === String(form.ward)
@@ -110,30 +86,23 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
 
   return (
     <div>
-
-      {/* HEADER */}
       <div className="flex items-center mb-6">
         <div className="w-10 h-10 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-lg mr-4">
           1
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">
-          Reporter Information
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-900">Reporter Information</h2>
       </div>
 
       <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-6">
-
-        {/* CUSTOMER INFO */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
           <Input
             label="Full Name"
             variant="underline"
             value={form.customer_name}
-            onChange={(e) => onChange('customer_name', e.target.value)}
-            required
+            disabled
+            className="bg-gray-100 cursor-not-allowed"
           />
-
+          {/* Phone field – visible, user can fill */}
           <Input
             label="Phone Number"
             variant="underline"
@@ -141,7 +110,6 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             onChange={(e) => onChange('customer_phone', e.target.value)}
             required
           />
-
         </div>
 
         <Input
@@ -152,10 +120,8 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
           onChange={(e) => onChange('customer_email', e.target.value)}
         />
 
-        {/* LOCATION (UI ONLY) */}
+        {/* Location dropdowns (unchanged) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* REGION */}
           <div>
             <label className="text-sm text-gray-600">Region</label>
             <select
@@ -165,14 +131,10 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             >
               <option value="">Select Region</option>
               {regions.map((r) => (
-                <option key={r.id} value={String(r.id)}>
-                  {r.name}
-                </option>
+                <option key={r.id} value={String(r.id)}>{r.name}</option>
               ))}
             </select>
           </div>
-
-          {/* DISTRICT */}
           <div>
             <label className="text-sm text-gray-600">District</label>
             <select
@@ -183,19 +145,13 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             >
               <option value="">Select District</option>
               {districts.map((d) => (
-                <option key={d.id} value={String(d.id)}>
-                  {d.name}
-                </option>
+                <option key={d.id} value={String(d.id)}>{d.name}</option>
               ))}
             </select>
           </div>
-
         </div>
 
-        {/* WARD + STREET */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* WARD (UI ONLY) */}
           <div>
             <label className="text-sm text-gray-600">Ward</label>
             <select
@@ -206,14 +162,10 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             >
               <option value="">Select Ward</option>
               {wards.map((w) => (
-                <option key={w.id} value={String(w.id)}>
-                  {w.name}
-                </option>
+                <option key={w.id} value={String(w.id)}>{w.name}</option>
               ))}
             </select>
           </div>
-
-          {/* STREET - Now using street_id */}
           <div>
             <label className="text-sm text-gray-600">
               Street <span className="text-red-500">*</span>
@@ -227,15 +179,11 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             >
               <option value="">Select Street</option>
               {streets.map((s) => (
-                <option key={s.id} value={String(s.id)}>
-                  {s.name}
-                </option>
+                <option key={s.id} value={String(s.id)}>{s.name}</option>
               ))}
             </select>
           </div>
-
         </div>
-
       </div>
     </div>
   );

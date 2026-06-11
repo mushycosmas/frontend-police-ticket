@@ -1,8 +1,8 @@
 import api from "./axios";
-
+import publicApi from "./publicApi";
 // GET ALL
 export const getCategories = () =>
-  api.get("/categories/");
+  publicApi.get("/categories/");
 
 // CREATE
 export const createCategory = (data) =>
