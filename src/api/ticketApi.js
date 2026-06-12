@@ -19,8 +19,8 @@ export const createTicket = (data) =>
 export const updateTicket = (id, data) =>
     api.patch(`/tickets/tickets/tickets/${id}/`, data);
 
-export const deleteTicket = (id) =>
-    api.delete(`/tickets/tickets/tickets/${id}/`);
+// export const deleteTicket = (id) =>
+//     api.delete(`/tickets/tickets/tickets/${id}/`);
 
 
 // Update ticket priority - uses the update endpoint
@@ -90,3 +90,18 @@ export const getAgingTickets = async () => {
     // Fallback to getTickets
     return getTickets();
 };
+
+// Soft delete a ticket (already existing, but ensures it uses soft delete)
+export const deleteTicket = (id) => api.delete(`/tickets/tickets/${id}/`);
+
+// Restore a soft‑deleted ticket
+export const restoreTicket = (id) => api.post(`/tickets/tickets/${id}/restore/`);
+
+// List all soft‑deleted tickets (admin only)
+export const getDeletedTickets = (params) => api.get("/tickets/tickets/deleted/", { params });
+
+// api/ticketApi.ts
+
+
+export const returnTicket = (ticketId, data) =>
+  api.post(`/tickets/tickets/${ticketId}/return/`, data);

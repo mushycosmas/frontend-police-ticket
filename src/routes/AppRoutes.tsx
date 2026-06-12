@@ -46,6 +46,7 @@ import Analytics from "../pages/reports/Analytics";
 import { Profile } from "../pages/profile/Profile";
 import { ChangePassword } from "../pages/profile/ChangePassword";
 import { IssueTemplateManager } from "../pages/admin/issue-template/IssueTemplate";
+import { DeletedTickets } from "../components/tickets/DeletedTickets";
 /* ========== ROUTER CONFIGURATION ========== */
 const router = createBrowserRouter([
   {
@@ -138,6 +139,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedPermissions={["view_ticket"]}>
             <Tickets />
+          </ProtectedRoute>
+        ),
+      },
+       {
+        path: "/admin/deleted-tickets",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_ticket"]}>
+            <DeletedTickets />
           </ProtectedRoute>
         ),
       },

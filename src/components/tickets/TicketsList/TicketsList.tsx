@@ -7,7 +7,7 @@ import { TicketsTable } from './components/TicketsTable';
 import { TicketsPagination } from './components/TicketsPagination';
 import { TicketsLoading } from './components/TicketsLoading';
 import { TicketsEmpty } from './components/TicketsEmpty';
-
+import ReturnTicketModal from '../ReturnTicketModal';
 import { Ticket } from '../../../types/tickets/tickets.types';
 
 import CreateTicketModal from '../CreateTicketModal';
@@ -121,7 +121,8 @@ export const TicketsList: React.FC = () => {
   const [showDelete, setShowDelete] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteTicketNumber, setDeleteTicketNumber] = useState('');
-
+  const [showReturnModal, setShowReturnModal] = React.useState(false);
+  const [selectedTicket, setSelectedTicket] = React.useState<Ticket | null>(null);
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
 
@@ -204,6 +205,10 @@ export const TicketsList: React.FC = () => {
   // ======================
   // CLOSE
   // ======================
+      const handleReturnClick = (ticket: Ticket) => {
+      setSelectedTicket(ticket);
+      setShowReturnModal(true);
+    };
   const handleCloseClick = useCallback((id: number, ticketNumber: string) => {
     setActionTicketId(id);
     setActionTicketNumber(ticketNumber);
@@ -338,16 +343,27 @@ export const TicketsList: React.FC = () => {
         ) : (
           <>
             <TicketsTable
-              tickets={tickets}
-              onView={handleView}
-              onDelete={handleDeleteClick}
-              onResolve={handleResolveClick}
-              onClose={handleCloseClick}
-              isDeleting={isDeleting}
-              isResolving={isResolving}
-              isClosing={isClosing}
-            />
-
+            tickets={tickets}
+            onView={handleView}
+            onDelete={handleDeleteClick}
+            onResolve={handleResolveClick}
+            onClose={handleCloseClick}
+            onReturn={handleReturnClick}
+            isDeleting={isDeleting}
+            isResolving={isResolving}
+            isClosing={isClosing}
+          />
+           {selectedTicket && (
+            <ReturnTicketModal
+            show={showReturnModal}
+            ticket={selectedTicket}
+            onHide={() => setShowReturnModal(false)}
+            onSuccess={() => {
+              setShowReturnModal(false);
+             // fetchTickets(); // or refetch function
+            }}
+          />
+          )}
             {totalPages > 1 && (
               <TicketsPagination
                 page={page}

@@ -1,20 +1,35 @@
 import React from 'react';
-import { Ticket } from '../../../../types/tickets/tickets.types';
 import { TicketsRow } from './TicketsRow';
+import { Ticket } from '../../../../types/tickets/tickets.types'; // adjust path if needed
 
-interface TicketsTableProps {
+const COLUMNS = [
+  'Ticket #',
+  'Title',
+  'Customer',
+  'Channel',
+  'Status',
+  'Priority',
+  'Agent',
+  'Created',
+  'Actions'
+];
+
+type TicketsTableProps = {
   tickets: Ticket[];
+
   onView: (ticket: Ticket) => void;
+
   onDelete: (id: number, ticketNumber: string) => void;
   onResolve: (id: number, ticketNumber: string) => void;
   onClose: (id: number, ticketNumber: string) => void;
+
+  onReturn: (ticket: Ticket) => void;
+
   isDeleting?: boolean;
   isResolving?: boolean;
   isClosing?: boolean;
-}
-
-// Updated columns - changed 'ID' to 'Ticket #'
-const COLUMNS = ['Ticket #', 'Title', 'Customer', 'Channel', 'Status', 'Priority', 'Agent', 'Created', 'Actions'];
+  isReturning?: boolean;
+};
 
 export const TicketsTable: React.FC<TicketsTableProps> = ({
   tickets,
@@ -22,9 +37,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   onDelete,
   onResolve,
   onClose,
+  onReturn,
   isDeleting = false,
   isResolving = false,
   isClosing = false,
+  isReturning = false,
 }) => {
   return (
     <div className="overflow-x-auto">
@@ -32,12 +49,16 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         <thead className="bg-gray-100">
           <tr>
             {COLUMNS.map((col) => (
-              <th key={col} className="text-left p-3 text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th
+                key={col}
+                className="text-left p-3 text-xs font-medium text-gray-600 uppercase tracking-wider"
+              >
                 {col}
               </th>
             ))}
           </tr>
         </thead>
+
         <tbody>
           {tickets.map((ticket) => (
             <TicketsRow
@@ -47,9 +68,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               onDelete={onDelete}
               onResolve={onResolve}
               onClose={onClose}
+              onReturn={onReturn}
               isDeleting={isDeleting}
               isResolving={isResolving}
               isClosing={isClosing}
+              isReturning={isReturning}
             />
           ))}
         </tbody>

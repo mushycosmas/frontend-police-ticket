@@ -44,6 +44,7 @@ const menuGroups: MenuGroup[] = [
       { to: "/tickets/in-progress", label: "In Progress", permission: "view_ticket" },
       { to: "/tickets/resolved", label: "Resolved Tickets", permission: "view_ticket" },
       { to: "/tickets/closed", label: "Closed Tickets", permission: "view_ticket" },
+      { to: "/admin/deleted-tickets", label: "Deleted Tickets", permission: "view_ticket" },
     ],
   },
   {

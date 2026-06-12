@@ -67,6 +67,12 @@ export interface AddMemberPayload {
 /**
  * Get all teams with optional filtering
  */
+
+export const getAllTeams = async (): Promise<TeamListResponse> => {
+  const response = await api.get("/auth/teams/all_teams/");
+  return response.data;
+};
+
 export const getTeams = async (params?: TeamListParams): Promise<TeamListResponse> => {
   const response = await api.get("/auth/teams/", { params });
   return response.data;
