@@ -285,7 +285,7 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="flex flex-col gap-1 mb-3">
+        {/* <div className="flex flex-col gap-1 mb-3">
           <NavLink
             to="/profile"
             className="text-xs text-blue-200 hover:text-white transition-colors"
@@ -298,7 +298,7 @@ export const Sidebar: React.FC = () => {
           >
             🔒 Change Password
           </NavLink>
-        </div>
+        </div> */}
 
         {/* Logout Button */}
         <LogoutButton />
