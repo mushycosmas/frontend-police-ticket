@@ -1,41 +1,45 @@
 import React from "react";
-import { Navigate, Outlet } from "react-router-dom";
-
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Header } from "./partials/Header";
 import { Sidebar } from "./partials/Sidebar";
 import { Footer } from "./partials/Footer";
 
 const AppLayout: React.FC = () => {
   const token = localStorage.getItem("token");
+  const location = useLocation();
 
-  if (!token) {
+  const publicRoutes = ["/", "/login", "/faqs", "/report"];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
+
+  if (!token && !isPublicRoute) {
     return <Navigate to="/login" replace />;
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gray-100">
 
-      {/* Header */}
       <Header />
 
-      {/* Middle Section */}
       <div className="flex flex-1">
 
-        {/* Sidebar */}
-        <div className="w-64 shrink-0">
-          <Sidebar />
-        </div>
+        {!isPublicRoute && (
+          <div className="w-64 shrink-0">
+            <Sidebar />
+          </div>
+        )}
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 bg-gray-100 overflow-auto">
+      
+        <main
+          className={`flex-1 overflow-auto ${
+            isPublicRoute ? "p-0" : "p-6"
+          }`}
+        >
           <Outlet />
         </main>
 
       </div>
 
-      {/* Footer */}
       <Footer />
-
     </div>
   );
 };

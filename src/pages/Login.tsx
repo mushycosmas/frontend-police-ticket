@@ -70,7 +70,7 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+    <div className="flex items-center justify-center min-h-[calc(100vh-200px)] p-4">
       <div className="w-full max-w-md">
         {/* Single card container – combines header and body */}
         <div className="bg-gradient-to-r from-brand-primary to-brand-light rounded-2xl shadow-xl overflow-hidden transition-all duration-300">

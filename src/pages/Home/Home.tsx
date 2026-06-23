@@ -32,14 +32,13 @@ export const Home: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans relative">
-      <div className="pb-20">
+      <div>
         <HeroSection 
           title="Ticket Support System"
           subtitle="Welcome. Please fill out the form below to create a new support ticket. Our team is ready to assist you."
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          leftLogo="/Coat of Arms - Taifa logo iliiyopitishwa(4).png"
-          rightLogo="/POLICE LOGO - APP - PLAIN 2.png"
+         
         />
 
         <div className="relative z-10 container mx-auto px-4 sm:px-6 pt-24 mt-24 mb-24 space-y-24">
@@ -56,7 +55,7 @@ export const Home: React.FC = () => {
         <TrackTicketModal onClose={() => setActiveTab(null)} />
       )}
 
-      <Footer />
+     
     </div>
   );
 };

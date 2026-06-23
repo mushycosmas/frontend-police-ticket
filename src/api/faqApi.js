@@ -1,12 +1,13 @@
 
 import api from "./axios";
+import publicApi from "./publicApi";
 // ========================
 // FAQ APIs
 // ========================
 
 // Get all FAQs (filter supported)
 export const getFAQs = async (params = {}) => {
-  const response = await api.get("/faqs/", { params });
+  const response = await publicApi.get("/faqs/", { params });
   return response.data;
 };
 
