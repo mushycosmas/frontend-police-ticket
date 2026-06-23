@@ -21,6 +21,8 @@ interface User {
   team_name?: string | null;
   is_active?: boolean;
   permissions: string[];
+  rank:String;
+  
 }
 
 /* =========================
