@@ -13,3 +13,4 @@ export const assignPermissionsToRole = (roleId, permissionIds) =>
 // GET ROLE PERMISSIONS
 export const getRolePermissions = (roleId) => 
     api.get(`/roles/roles/${roleId}/`);
+

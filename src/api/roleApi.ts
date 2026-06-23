@@ -71,7 +71,7 @@ export interface AssignPermissionPayload {
  * Get all roles with optional filtering
  */
 export const getRoles = async (params?: RoleListParams): Promise<RoleListResponse> => {
-  const response = await api.get("/roles/", { params });
+  const response = await api.get("/roles/roles/", { params });
   return response.data;
 };
 
@@ -79,7 +79,7 @@ export const getRoles = async (params?: RoleListParams): Promise<RoleListRespons
  * Get single role by ID
  */
 export const getRole = async (id: number): Promise<Role> => {
-  const response = await api.get(`/roles/${id}/`);
+  const response = await api.get(`/roles/roles/${id}/`);
   return response.data;
 };
 
@@ -87,7 +87,7 @@ export const getRole = async (id: number): Promise<Role> => {
  * Create new role
  */
 export const createRole = async (data: CreateRolePayload): Promise<Role> => {
-  const response = await api.post("/roles/", data);
+  const response = await api.post("/roles/roles/", data);
   return response.data;
 };
 
@@ -96,7 +96,7 @@ export const createRole = async (data: CreateRolePayload): Promise<Role> => {
  */
 export const updateRole = async (id: number, data: UpdateRolePayload): Promise<Role> => {
   console.log("Updating role with data:", data);
-  const response = await api.put(`/roles/${id}/`, data);
+  const response = await api.put(`/roles/roles/${id}/`, data);
   return response.data;
 };
 
@@ -104,7 +104,7 @@ export const updateRole = async (id: number, data: UpdateRolePayload): Promise<R
  * Partial update role (PATCH)
  */
 export const patchRole = async (id: number, data: Partial<UpdateRolePayload>): Promise<Role> => {
-  const response = await api.patch(`/roles/${id}/`, data);
+  const response = await api.patch(`/roles/roles/${id}/`, data);
   return response.data;
 };
 
@@ -112,7 +112,7 @@ export const patchRole = async (id: number, data: Partial<UpdateRolePayload>): P
  * Delete role
  */
 export const deleteRole = async (id: number): Promise<void> => {
-  await api.delete(`/roles/${id}/`);
+  await api.delete(`/roles/roles/${id}/`);
 };
 
 // ================= PERMISSIONS API =================
@@ -269,3 +269,27 @@ export const getPermissionCategories = async (): Promise<{
   const response = await api.get("/roles/permissions/categories/");
   return response.data;
 };
+
+
+
+
+
+
+export const createPermission = (data: {
+  name: string;
+  codename: string;
+  content_type_id: number;  // Make it required, not optional
+}) => {
+  console.log("Creating permission with data:", data);
+  return api.post("/roles/permissions/", data);
+};
+
+
+// ✏️ UPDATE permission
+export const updatePermission = (
+  id: number,
+  data: {
+    name?: string;
+    codename?: string;
+  }
+) => api.put(`/roles/permissions/${id}/`, data);
