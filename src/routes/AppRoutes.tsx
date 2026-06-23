@@ -47,6 +47,8 @@ import { Profile } from "../pages/profile/Profile";
 import { ChangePassword } from "../pages/profile/ChangePassword";
 import { IssueTemplateManager } from "../pages/admin/issue-template/IssueTemplate";
 import { DeletedTickets } from "../components/tickets/DeletedTickets";
+
+import Faqs from "../pages/admin/Faqs";
 /* ========== ROUTER CONFIGURATION ========== */
 const router = createBrowserRouter([
   {
@@ -222,6 +224,14 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+       {
+      path: "/admin/faqs",
+      element: (
+        <ProtectedRoute allowedPermissions={["view_faq"]}>
+          <Faqs />
+        </ProtectedRoute>
+      ),
+    },
       {
         path: "/admin/issue-templates",
         element: (
@@ -324,6 +334,7 @@ const router = createBrowserRouter([
     path: "*",
     element: <Navigate to="/dashboard" replace />,
   },
+ 
 ]);
 
 const AppRoutes = () => {

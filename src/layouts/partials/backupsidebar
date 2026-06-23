@@ -20,7 +20,7 @@ type MenuGroup = {
 };
 
 /* =========================
-   MENU DATA
+   MENU DATA - CORRECTED
 ========================= */
 const menuGroups: MenuGroup[] = [
   {
@@ -82,10 +82,10 @@ const menuGroups: MenuGroup[] = [
       { to: "/admin/users", label: "Users", permission: "view_user" },
       { to: "/admin/teams", label: "Teams", permission: "view_team" },
       { to: "/admin/categories", label: "Categories", permission: "view_category" },
-      { to: "/admin/channels", label: "Channels", permission: "view_channel" },
+      { to: "/admin/channels", label: "channels", permission: "view_channel" },
       { to: "/admin/priorities", label: "Priorities", permission: "view_priority" },
       { to: "/admin/issue-templates", label: "Issue Templates", permission: "view_issuetemplate" },
-      { to: "/admin/faqs", label: "FAQ", permission: "view_faq" },
+      
     ],
   },
   {
@@ -120,7 +120,7 @@ export const Sidebar: React.FC = () => {
   /* =========================
      ROLE NORMALIZER
   ========================= */
-  const normalizeRole = (role: any): string => {
+  const normalizeRole = (role: any) => {
     if (!role) return "UNKNOWN";
 
     if (typeof role === "string") {
@@ -137,9 +137,9 @@ export const Sidebar: React.FC = () => {
   const userRole = normalizeRole(user?.role);
 
   /* =========================
-     PERMISSION CHECK
+     SAFE PERMISSION CHECK
   ========================= */
-  const hasPermission = (perm: string): boolean => {
+  const hasPermission = (perm: string) => {
     if (!perm) return true;
     if (!Array.isArray(permissions)) return false;
     if (permissions.includes("*")) return true;
@@ -147,25 +147,34 @@ export const Sidebar: React.FC = () => {
   };
 
   /* =========================
-     FILTER MENU
+     CHECK GROUP PERMISSION
   ========================= */
-  const filteredMenuGroups = menuGroups
-    .map((group) => {
-      const filteredChildren = group.children.filter((child) =>
-        hasPermission(child.permission)
-      );
-      return { ...group, children: filteredChildren };
-    })
-    .filter((group) => group.children.length > 0);
+  const hasGroupPermission = (group: MenuGroup) => {
+    // Check if user has permission for any child in the group
+    return group.children.some(child => hasPermission(child.permission));
+  };
 
   /* =========================
-     INITIAL OPEN STATE
+     FILTER MENU
   ========================= */
-  const getInitialOpenState = (): Record<string, boolean> => {
+  const allowedGroups = menuGroups
+    .map((group) => {
+      const children = group.children.filter((c) =>
+        hasPermission(c.permission)
+      );
+      return { ...group, children };
+    })
+    .filter((group) => group.children.length > 0 && hasGroupPermission(group));
+
+  /* =========================
+     OPEN MENU STATE
+  ========================= */
+  const getInitialOpenState = () => {
     const state: Record<string, boolean> = {};
 
-    filteredMenuGroups.forEach((group) => {
+    allowedGroups.forEach((group) => {
       const isActive = group.children.some((child) => {
+        // Exact match or starts with (for nested routes)
         if (child.to === location.pathname) return true;
         if (child.to !== "/" && location.pathname.startsWith(child.to)) return true;
         return false;
@@ -180,16 +189,10 @@ export const Sidebar: React.FC = () => {
     getInitialOpenState()
   );
 
-  /* =========================
-     EFFECTS
-  ========================= */
   useEffect(() => {
     setOpenMenus(getInitialOpenState());
   }, [location.pathname]);
 
-  /* =========================
-     HANDLERS
-  ========================= */
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) => ({
       ...prev,
@@ -197,11 +200,9 @@ export const Sidebar: React.FC = () => {
     }));
   };
 
-  /* =========================
-     RENDER
-  ========================= */
   return (
     <aside className="w-64 h-full bg-brand-primary flex flex-col border-r border-blue-900">
+
       {/* HEADER */}
       <div className="px-6 py-6 border-b border-brand-light">
         <div className="flex items-center gap-3">
@@ -217,11 +218,13 @@ export const Sidebar: React.FC = () => {
 
       {/* NAVIGATION */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {filteredMenuGroups.map((group) => {
+
+        {allowedGroups.map((group) => {
           const isOpen = openMenus[group.label];
 
           return (
             <div key={group.label} className="mb-2">
+
               {/* GROUP HEADER */}
               <button
                 onClick={() => toggleMenu(group.label)}
@@ -244,7 +247,7 @@ export const Sidebar: React.FC = () => {
                 </span>
               </button>
 
-              {/* CHILDREN */}
+              {/* CHILDREN MENU ITEMS */}
               <div
                 className={`ml-4 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
                   isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
@@ -267,42 +270,46 @@ export const Sidebar: React.FC = () => {
                   </NavLink>
                 ))}
               </div>
+
             </div>
           );
         })}
       </nav>
 
       {/* USER SECTION */}
-      <div className="px-4 py-4 border-t border-brand-light">
-        {/* User Info */}
-        <div className="mb-3">
-          <p className="text-white text-sm font-medium">
-            {`${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
-              user?.username ||
-              "Guest"}
-          </p>
-          <p className="text-blue-300 text-xs">{userRole}</p>
-        </div>
+      {/* USER SECTION */}
+<div className="px-4 py-4 border-t border-brand-light">
 
-        {/* Quick Actions */}
-        <div className="flex flex-col gap-1 mb-3">
-          <NavLink
-            to="/profile"
-            className="text-xs text-blue-200 hover:text-white transition-colors"
-          >
-            👤 My Profile
-          </NavLink>
-          <NavLink
-            to="/change-password"
-            className="text-xs text-blue-200 hover:text-white transition-colors"
-          >
-            🔒 Change Password
-          </NavLink>
-        </div>
+  <div className="mb-3">
+    <p className="text-white text-sm font-medium">
+      {`${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
+        user?.username ||
+        "Guest"}
+    </p>
 
-        {/* Logout Button */}
-        <LogoutButton />
-      </div>
+    <p className="text-blue-300 text-xs">
+      {userRole}
+    </p>
+  </div>
+
+  {/* QUICK ACCOUNT ACTIONS */}
+  <div className="flex flex-col gap-1 mb-3">
+    <NavLink
+      to="/profile"
+      className="text-xs text-blue-200 hover:text-white"
+    >
+      👤 My Profile
+    </NavLink>
+    <NavLink
+      to="/change-password"
+      className="text-xs text-blue-200 hover:text-white"
+    >
+      🔒 Change Password
+    </NavLink>
+  </div>
+  <LogoutButton />
+</div>
+
     </aside>
   );
 };
