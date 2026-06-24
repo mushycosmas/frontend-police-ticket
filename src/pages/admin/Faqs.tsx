@@ -1,5 +1,5 @@
 // pages/admin/Faqs.tsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   useFaqs,
   useFaqMutations,
@@ -10,13 +10,32 @@ import { useCategories } from "../../hooks/useCategories";
 import { useChannels } from "../../hooks/useChannels";
 import { FaqFormModal } from "../../components/faqs/FaqFormModal";
 
+// ============================================
+// Helper Functions
+// ============================================
+const stripHtml = (html: string): string => {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+};
+
+const truncateText = (text: string, maxLength: number = 100): string => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
+// ============================================
+// Component
+// ============================================
 const Faqs: React.FC = () => {
+  // Hooks
   const { faqs, loading, refetch } = useFaqs();
   const { create, update, remove } = useFaqMutations();
   const { results, search } = useFaqSearch();
   const { categories } = useCategories();
   const { channels } = useChannels();
 
+  // State
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingFaq, setEditingFaq] = useState<FAQ | null>(null);
@@ -89,32 +108,55 @@ const Faqs: React.FC = () => {
   // Determine which FAQs to display
   const displayFaqs = searchTerm.trim().length > 0 ? results : faqs;
 
-  // Status badge component
-  const StatusBadge = ({ isActive }: { isActive: boolean }) => {
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        isActive 
-          ? 'bg-green-100 text-green-800' 
-          : 'bg-gray-100 text-gray-800'
-      }`}>
-        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive ? 'bg-green-500' : 'bg-gray-500'}`} />
-        {isActive ? 'Active' : 'Inactive'}
-      </span>
-    );
-  };
+  // ============================================
+  // Sub-components
+  // ============================================
+  
+  // Status Badge
+  const StatusBadge = ({ isActive }: { isActive: boolean }) => (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+      isActive 
+        ? 'bg-green-100 text-green-800' 
+        : 'bg-gray-100 text-gray-800'
+    }`}>
+      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive ? 'bg-green-500' : 'bg-gray-500'}`} />
+      {isActive ? 'Active' : 'Inactive'}
+    </span>
+  );
 
-  // Featured badge
+  // Featured Badge
   const FeaturedBadge = ({ isFeatured }: { isFeatured: boolean }) => {
-    return isFeatured ? (
+    if (!isFeatured) return null;
+    return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
         <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
         Featured
       </span>
-    ) : null;
+    );
   };
 
+  // Answer Preview with HTML support
+  const AnswerPreview = ({ answer }: { answer: string }) => {
+    if (!answer) return null;
+    
+    const plainText = stripHtml(answer);
+    const truncated = truncateText(plainText, 100);
+    
+    return (
+      <div 
+        className="text-sm text-gray-500 line-clamp-2 mt-1 prose prose-sm max-w-none"
+        dangerouslySetInnerHTML={{ 
+          __html: truncated
+        }}
+      />
+    );
+  };
+
+  // ============================================
+  // Render
+  // ============================================
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
       {/* Header Section */}
@@ -158,7 +200,9 @@ const Faqs: React.FC = () => {
       {/* Message Toast */}
       {message && (
         <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
-          message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'
+          message.type === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-700' 
+            : 'bg-red-50 border border-red-200 text-red-700'
         }`}>
           <div className="flex items-center gap-2">
             {message.type === 'success' ? (
@@ -238,13 +282,9 @@ const Faqs: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900">{faq.question}</p>
-                          {faq.answer && (
-                            <p className="text-sm text-gray-500 line-clamp-2 mt-1">
-                              {faq.answer.length > 100 ? faq.answer.substring(0, 100) + '...' : faq.answer}
-                            </p>
-                          )}
+                          <AnswerPreview answer={faq.answer} />
                           {faq.is_featured && (
                             <div className="mt-1">
                               <FeaturedBadge isFeatured={faq.is_featured} />

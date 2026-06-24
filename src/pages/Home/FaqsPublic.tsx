@@ -1,3 +1,4 @@
+// pages/public/FaqsPublic.tsx
 import React, { useEffect, useState } from "react";
 import { getFAQs } from "../../api/faqApi";
 import { useChannels } from "../../hooks/useChannels";
@@ -22,26 +23,22 @@ const FaqsPublic: React.FC = () => {
   const { channels } = useChannels();
 
   const [faqs, setFaqs] = useState<FAQ[]>([]);
-  const [allFaqs, setAllFaqs] = useState<FAQ[]>([]); // Store all FAQs for client-side filtering
+  const [allFaqs, setAllFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<number | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<number | null>(null);
 
-  // ========================
+  // ============================================
   // LOAD FAQS
-  // ========================
+  // ============================================
   useEffect(() => {
     const fetchFaqs = async () => {
       try {
         setLoading(true);
 
-        // Try API filtering first with correct parameter name
         const params: any = {};
         if (selectedChannel !== null && selectedChannel !== undefined) {
-          // Try 'channel' instead of 'channel_id' based on your data structure
           params.channel = selectedChannel;
-          // If that doesn't work, uncomment this and comment the above:
-          // params.channel_id = selectedChannel;
         }
 
         console.log("Fetching FAQs with params:", params);
@@ -50,7 +47,6 @@ const FaqsPublic: React.FC = () => {
 
         console.log("FAQ Response:", res);
 
-        // Handle different response structures
         let data: FAQ[] = [];
         
         if (Array.isArray(res)) {
@@ -63,15 +59,11 @@ const FaqsPublic: React.FC = () => {
           data = res.results;
         }
 
-        // Filter only active FAQs
         const activeFaqs = data.filter(faq => faq.is_active === true);
-        
-        // Store all FAQs for client-side filtering
         setAllFaqs(activeFaqs);
         setFaqs(activeFaqs);
       } catch (err) {
         console.error("Failed to load FAQs", err);
-        // If API filtering fails, try client-side filtering
         if (selectedChannel !== null) {
           await fetchAllAndFilter();
         }
@@ -80,7 +72,6 @@ const FaqsPublic: React.FC = () => {
       }
     };
 
-    // Fallback: Fetch all and filter on client side
     const fetchAllAndFilter = async () => {
       try {
         const res = await getFAQs({});
@@ -99,7 +90,6 @@ const FaqsPublic: React.FC = () => {
         const activeFaqs = data.filter(faq => faq.is_active === true);
         setAllFaqs(activeFaqs);
         
-        // Filter by selected channel
         const filteredFaqs = selectedChannel 
           ? activeFaqs.filter(faq => faq.channel === selectedChannel)
           : activeFaqs;
@@ -113,7 +103,7 @@ const FaqsPublic: React.FC = () => {
     fetchFaqs();
   }, [selectedChannel]);
 
-  // Client-side filtering when API filtering doesn't work
+  // Client-side filtering
   useEffect(() => {
     if (allFaqs.length > 0) {
       const filteredFaqs = selectedChannel 
@@ -127,6 +117,18 @@ const FaqsPublic: React.FC = () => {
     setOpenId(openId === id ? null : id);
   };
 
+  // ============================================
+  // Helper: Strip HTML for meta description
+  // ============================================
+  const stripHtml = (html: string): string => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
+  // ============================================
+  // Render
+  // ============================================
   return (
     <div className="max-w-5xl mx-auto p-6">
       {/* TITLE */}
@@ -135,10 +137,9 @@ const FaqsPublic: React.FC = () => {
       </h1>
 
       {/* ========================
-          CHANNEL FILTER (HORIZONTAL)
+          CHANNEL FILTER
       ======================== */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-thin">
-        {/* ALL */}
         <button
           onClick={() => setSelectedChannel(null)}
           className={`px-4 py-2 rounded-full text-sm whitespace-nowrap border transition ${
@@ -209,6 +210,7 @@ const FaqsPublic: React.FC = () => {
               key={faq.id}
               className="border rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow"
             >
+              {/* Question Button */}
               <button
                 onClick={() => toggle(faq.id)}
                 className="w-full px-6 py-4 text-left font-medium flex justify-between items-center hover:bg-gray-50 transition-colors"
@@ -233,11 +235,17 @@ const FaqsPublic: React.FC = () => {
                 </span>
               </button>
 
+              {/* Answer Section */}
               <div className={`transition-all duration-200 ${openId === faq.id ? 'max-h-96' : 'max-h-0 overflow-hidden'}`}>
                 {openId === faq.id && (
                   <div className="px-6 pb-6 pt-2 border-t border-gray-100">
-                    <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
+                    {/* ✅ FIX: Render HTML content with dangerouslySetInnerHTML */}
+                    <div 
+                      className="text-gray-700 leading-relaxed prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: faq.answer }}
+                    />
                     
+                    {/* Meta Tags */}
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       {faq.category_name && (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">

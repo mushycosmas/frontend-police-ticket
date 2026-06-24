@@ -1,5 +1,8 @@
 // components/faqs/FaqFormModal.tsx
 import React, { useState, useEffect } from 'react';
+import ReactQuill from 'react-quill';
+// @ts-ignore - Ignore CSS import type error
+import 'react-quill/dist/quill.snow.css';
 import { FAQ } from '../../hooks/useFaqs';
 
 interface FaqFormModalProps {
@@ -11,6 +14,30 @@ interface FaqFormModalProps {
   channels: any[];
 }
 
+// Quill editor configuration
+const QUILL_MODULES = {
+  toolbar: [
+    [{ header: [1, 2, 3, 4, 5, 6, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    ['blockquote', 'code-block'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    [{ align: [] }],
+    ['link', 'image'],
+    ['clean']
+  ]
+};
+
+const QUILL_FORMATS = [
+  'header',
+  'bold', 'italic', 'underline', 'strike',
+  'blockquote', 'code-block',
+  'list', 'bullet',
+  'indent', 'align',
+  'link', 'image'
+];
+
+// ✅ Keep named export
 export const FaqFormModal: React.FC<FaqFormModalProps> = ({
   show,
   onClose,
@@ -55,7 +82,7 @@ export const FaqFormModal: React.FC<FaqFormModalProps> = ({
   }, [editingFaq]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
 
@@ -66,6 +93,13 @@ export const FaqFormModal: React.FC<FaqFormModalProps> = ({
         : name === 'category' || name === 'channel' || name === 'sort_order'
           ? Number(value)
           : value
+    }));
+  };
+
+  const handleAnswerChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      answer: value
     }));
   };
 
@@ -91,9 +125,12 @@ export const FaqFormModal: React.FC<FaqFormModalProps> = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-xl">
-        <div className="flex justify-between items-center mb-6">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-xl">
+        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 pb-4 border-b">
           <h2 className="text-xl font-bold text-gray-900">
             {editingFaq ? 'Edit FAQ' : 'Create New FAQ'}
           </h2>
@@ -168,20 +205,26 @@ export const FaqFormModal: React.FC<FaqFormModalProps> = ({
               />
             </div>
 
-            {/* Answer */}
+            {/* Answer with Rich Text Editor */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Answer *
               </label>
-              <textarea
-                name="answer"
-                value={formData.answer}
-                onChange={handleChange}
-                placeholder="Enter the answer"
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
+              <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                <ReactQuill
+                  theme="snow"
+                  value={formData.answer}
+                  onChange={handleAnswerChange}
+                  modules={QUILL_MODULES}
+                  formats={QUILL_FORMATS}
+                  placeholder="Write your answer here..."
+                  className="bg-white"
+                  style={{ minHeight: '200px' }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Tip: Use the toolbar above to format your answer with bold, lists, links, and more.
+              </p>
             </div>
 
             {/* Sort Order */}
@@ -232,7 +275,7 @@ export const FaqFormModal: React.FC<FaqFormModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t sticky bottom-0 bg-white">
             <button
               type="button"
               onClick={onClose}
