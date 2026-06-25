@@ -50,7 +50,20 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
     return "";
   }, []);
 
+  const getUserTeamId = useCallback((user: any): number | null => {
+    if (!user) return null;
+    const teamId = user.team_id || user.team || user.teamId || null;
+    return teamId ? Number(teamId) : null;
+  }, []);
+
+  const getUserTeamName = useCallback((user: any): string | null => {
+    if (!user) return null;
+    return user.team_name || user.teamName || null;
+  }, []);
+
   const userRole = getUserRole(userData);
+  const userTeamId = getUserTeamId(userData);
+  const userTeamName = getUserTeamName(userData);
 
   const [loading, setLoading] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -130,26 +143,91 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
         const allUsers = extractArray(usersRes);
         setTeams(allTeams);
 
-        const isAgent = (u: User): boolean => {
+        // ✅ Only AGENT and SUPPORT can be assigned to (NOT TEAM_LEAD)
+        const isAssignable = (u: User): boolean => {
           const role = u.role_name || (typeof u.role === "object" ? u.role?.name : u.role);
-          return role?.toUpperCase() === "AGENT";
+          const upperRole = role?.toUpperCase();
+          return ["AGENT", "SUPPORT"].includes(upperRole);
         };
-        const getUserTeamId = (u: any) => u.team_id || u.team || null;
+        
+        const getUserTeamIdFromUser = (u: any) => u.team_id || u.team || u.teamId || null;
+        const getUserTeamNameFromUser = (u: any) => u.team_name || u.teamName || null;
+
+        console.log("🔍 CreateTicketModal - User Data:", {
+          userRole,
+          userTeamId,
+          userTeamName,
+          userData
+        });
 
         if (userRole === "TEAM_LEAD") {
-          const teamId = getUserTeamId(userData);
-          const filtered = allUsers.filter(
-            u => isAgent(u) && Number(getUserTeamId(u)) === Number(teamId)
-          );
+          // ✅ More robust filtering - check by team_id OR team_name
+          const filtered = allUsers.filter(u => {
+            const uRole = getUserRole(u);
+            const uTeamId = getUserTeamIdFromUser(u);
+            const uTeamName = getUserTeamNameFromUser(u);
+            const isSelf = u.id === userData.id;
+            
+            // Check if user is AGENT or SUPPORT
+            const isAssignableRole = ["AGENT", "SUPPORT"].includes(uRole);
+            
+            // Check if same team (by ID or name)
+            const isSameTeam = 
+              (userTeamId && uTeamId && Number(uTeamId) === Number(userTeamId)) ||
+              (userTeamName && uTeamName && uTeamName.toLowerCase() === userTeamName.toLowerCase());
+            
+            // Log for debugging
+            console.log(`🔍 Checking user: ${u.full_name || u.username}`, {
+              role: uRole,
+              isAssignableRole,
+              userTeamId,
+              uTeamId,
+              userTeamName,
+              uTeamName,
+              isSameTeam,
+              isSelf
+            });
+            
+            return isAssignableRole && isSameTeam && !isSelf;
+          });
+          
           setAgents(filtered);
-          if (teamId) setFormData(prev => ({ ...prev, team: String(teamId) }));
-          if (filtered.length === 0) showToast("No agents found in your team", "warning");
-        } else if (userRole === "AGENT") {
+          
+          // Auto-select team
+          if (userTeamId) {
+            setFormData(prev => ({ ...prev, team: String(userTeamId) }));
+          }
+          
+          // Auto-select first agent if available
+          if (filtered.length > 0) {
+            setFormData(prev => ({ ...prev, assigned_to: String(filtered[0].id) }));
+          }
+          
+          if (filtered.length === 0) {
+            console.warn("⚠️ No agents found for team lead", {
+              userTeamId,
+              userTeamName,
+              allUsers: allUsers.map(u => ({
+                name: u.full_name || u.username,
+                role: getUserRole(u),
+                team_id: getUserTeamIdFromUser(u),
+                team_name: getUserTeamNameFromUser(u)
+              }))
+            });
+            showToast("No agents or support staff found in your team", "warning");
+          }
+        } else if (userRole === "AGENT" || userRole === "SUPPORT") {
           const current = allUsers.filter(u => u.id === userData.id);
           setAgents(current);
-          if (current.length) setFormData(prev => ({ ...prev, assigned_to: String(current[0].id) }));
+          if (current.length) {
+            setFormData(prev => ({ ...prev, assigned_to: String(current[0].id) }));
+          }
+          if (userTeamId) {
+            setFormData(prev => ({ ...prev, team: String(userTeamId) }));
+          }
         } else if (userRole === "ADMIN") {
-          setAgents(allUsers.filter(isAgent));
+          // ✅ Admin can assign to AGENT and SUPPORT (not TEAM_LEAD)
+          setAgents(allUsers.filter(isAssignable));
         } else {
           setAgents([]);
         }
@@ -160,7 +238,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
       }
     };
     loadTeamsAndAgents();
-  }, [show, userRole, userData, showToast]);
+  }, [show, userRole, userTeamId, userTeamName, userData, showToast]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -189,30 +267,46 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
       category: formData.category_id ? parseInt(formData.category_id) : undefined,
       assigned_by: userData.id,
     };
-     console.log("🔥 CREATE TICKET PAYLOAD:", payload);
+    
     const hasRole = (roleName: string): boolean => {
       const r = userData.role_name || (typeof userData.role === "object" ? userData.role?.name : userData.role);
       return r?.toUpperCase() === roleName.toUpperCase();
     };
-    const getUserTeamId = () => userData.team_id || userData.team || null;
+    const getUserTeamIdFromData = () => userData.team_id || userData.team || null;
 
     if (hasRole("ADMIN")) {
-      if (mode === "agent") {
-        if (!formData.assigned_to) return showToast("Select an agent", "error");
-        payload.assigned_to = parseInt(formData.assigned_to);
-      } else if (mode === "team") {
-        if (!formData.team) return showToast("Select a team", "error");
-        payload.team = parseInt(formData.team);
+      if (mode === "agent" || mode === "team") {
+        if (formData.assigned_to) {
+          payload.assigned_to = parseInt(formData.assigned_to);
+        } else if (mode === "agent") {
+          return showToast("Select an agent", "error");
+        }
+        
+        if (formData.team) {
+          payload.team = parseInt(formData.team);
+        } else if (mode === "team") {
+          return showToast("Select a team", "error");
+        }
       }
+      
     } else if (hasRole("TEAM_LEAD")) {
-      if (!formData.assigned_to) return showToast("Select an agent from your team", "error");
+      if (!formData.assigned_to) {
+        return showToast("Select an agent from your team", "error");
+      }
       payload.assigned_to = parseInt(formData.assigned_to);
-      const teamId = getUserTeamId();
-      if (teamId) payload.team = teamId;
-    } else if (hasRole("AGENT")) {
+      
+      const teamId = getUserTeamIdFromData();
+      if (teamId) {
+        payload.team = teamId;
+      }
+      
+    } else if (hasRole("AGENT") || hasRole("SUPPORT")) {
       payload.assigned_to = userData.id;
-      const teamId = getUserTeamId();
-      if (teamId) payload.team = teamId;
+      
+      const teamId = getUserTeamIdFromData();
+      if (teamId) {
+        payload.team = teamId;
+      }
     }
 
     try {
@@ -245,132 +339,227 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
     <>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onHide}>
-        <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="bg-white w-full max-w-4xl rounded-xl shadow-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-5">
             <h2 className="text-xl font-semibold">Create Ticket</h2>
             <button onClick={onHide} className="text-gray-500 hover:text-black">✕</button>
           </div>
 
-          <div className="space-y-4">
-            {/* Customer fields */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Customer Name *</label>
-              <input name="customer_name" value={formData.customer_name} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Customer Email *</label>
-              <input name="customer_email" type="email" value={formData.customer_email} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Customer Phone (Optional)</label>
-              <input name="customer_phone" placeholder="+255..." value={formData.customer_phone} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">NIDA Number (Optional)</label>
-              <input name="customer_nida" value={formData.customer_nida} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Gender (Optional)</label>
-              <select name="customer_gender" value={formData.customer_gender} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                <option value="">-- Select gender --</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-                <option value="O">Other</option>
-                <option value="N">Prefer not to say</option>
-              </select>
-            </div>
-
-            {/* Channel (dynamic) */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Channel *</label>
-              <select name="channel_id" value={formData.channel_id} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                <option value="">-- Select channel --</option>
-                {channels.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}
-              </select>
-              {channelsLoading && <p className="text-xs text-gray-500">Loading channels...</p>}
-            </div>
-
-            {/* Category (dynamic) */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Category (Optional)</label>
-              <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                <option value="">-- No category --</option>
-                {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-              </select>
-              {categoriesLoading && <p className="text-xs text-gray-500">Loading categories...</p>}
+          {/* ✅ TWO COLUMN GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* LEFT COLUMN - Customer Information */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Customer Information</h3>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Customer Name *</label>
+                <input name="customer_name" value={formData.customer_name} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Customer Email *</label>
+                <input name="customer_email" type="email" value={formData.customer_email} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Customer Phone (Optional)</label>
+                <input name="customer_phone" placeholder="+255..." value={formData.customer_phone} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">NIDA Number (Optional)</label>
+                <input name="customer_nida" value={formData.customer_nida} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Gender (Optional)</label>
+                <select name="customer_gender" value={formData.customer_gender} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="">-- Select gender --</option>
+                  <option value="M">Male</option>
+                  <option value="F">Female</option>
+                
+                </select>
+              </div>
             </div>
 
-            {/* Title, Description, Priority */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Title *</label>
-              <input name="title" value={formData.title} onChange={handleChange} className="w-full border rounded px-3 py-2" />
+            {/* RIGHT COLUMN - Ticket Details */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Ticket Details</h3>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Channel *</label>
+                <select name="channel_id" value={formData.channel_id} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="">-- Select channel --</option>
+                  {channels.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}
+                </select>
+                {channelsLoading && <p className="text-xs text-gray-500 mt-1">Loading channels...</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Category (Optional)</label>
+                <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="">-- No category --</option>
+                  {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                </select>
+                {categoriesLoading && <p className="text-xs text-gray-500 mt-1">Loading categories...</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Title *</label>
+                <input name="title" value={formData.title} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Priority</label>
+                <select name="priority" value={formData.priority} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="LOW">🟢 Low</option>
+                  <option value="MEDIUM">🟡 Medium</option>
+                  <option value="HIGH">🟠 High</option>
+                  <option value="CRITICAL">🔴 Critical</option>
+                </select>
+              </div>
             </div>
-            <div>
+
+            {/* DESCRIPTION - Full Width */}
+            <div className="col-span-1 md:col-span-2">
               <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea name="description" rows={4} value={formData.description} onChange={handleChange} className="w-full border rounded px-3 py-2" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Priority</label>
-              <select name="priority" value={formData.priority} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                <option value="LOW">🟢 Low</option>
-                <option value="MEDIUM">🟡 Medium</option>
-                <option value="HIGH">🟠 High</option>
-                <option value="CRITICAL">🔴 Critical</option>
-              </select>
+              <textarea name="description" rows={3} value={formData.description} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
             </div>
 
-            {/* Assignment UI (role‑based) */}
-            {hasRoleForRender("ADMIN") && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Assignment Type</label>
-                <select className="w-full border rounded px-3 py-2" value={mode} onChange={e => setMode(e.target.value as "agent" | "team")}>
-                  <option value="agent">👤 Assign to Agent</option>
-                  <option value="team">👥 Assign to Team</option>
-                </select>
+            {/* ASSIGNMENT - Full Width */}
+            <div className="col-span-1 md:col-span-2">
+              <h3 className="text-sm font-semibold text-gray-700 border-b pb-2 mb-3">Assignment</h3>
+              
+              <div className="space-y-3">
+                {/* Assignment Type - Admin only */}
+                {hasRoleForRender("ADMIN") && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Assignment Type</label>
+                    <select className="w-full border rounded px-3 py-2 text-sm" value={mode} onChange={e => setMode(e.target.value as "agent" | "team")}>
+                      <option value="agent">👤 Assign to Agent</option>
+                      <option value="team">👥 Assign to Team</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Team Lead Assignment */}
+                {hasRoleForRender("TEAM_LEAD") && (
+                  <div>
+                    <div className="bg-purple-50 p-2 rounded mb-3">
+                      <p className="text-sm text-purple-700">
+                        📋 Your Team: {userTeamName || userTeamId || "Not set"}
+                      </p>
+                    </div>
+                    
+                    <label className="block text-sm font-medium mb-1">Select Agent from Your Team</label>
+                    <select name="assigned_to" value={formData.assigned_to} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                      <option value="">-- Select agent --</option>
+                      {agents.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {getUserDisplayName(a)} {a.role_name && `(${a.role_name})`}
+                          {a.team_name && ` - ${a.team_name}`}
+                        </option>
+                      ))}
+                    </select>
+                    {agents.length === 0 && (
+                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded">
+                        <p className="text-red-600 text-sm font-medium">
+                          No agents or support staff found in your team
+                        </p>
+                        <p className="text-xs text-red-500 mt-1">
+                          Team ID: {userTeamId || "Not set"} | 
+                          Team Name: {userTeamName || "Not set"}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Please contact admin to add team members or check your team assignment.
+                        </p>
+                      </div>
+                    )}
+                    <div className="bg-purple-50 p-2 rounded mt-2">
+                      <p className="text-sm text-purple-700">Ticket will be assigned to your team and the selected agent.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Admin - Agent Mode */}
+                {hasRoleForRender("ADMIN") && mode === "agent" && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Select Agent</label>
+                    <select name="assigned_to" value={formData.assigned_to} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                      <option value="">-- Select agent --</option>
+                      {agents.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {getUserDisplayName(a)} {a.role_name && `(${a.role_name})`}
+                        </option>
+                      ))}
+                    </select>
+                    
+                    {/* Optional Team selection for admin */}
+                    {teams.length > 0 && (
+                      <div className="mt-2">
+                        <label className="block text-sm font-medium mb-1 text-gray-600">Also assign to Team (Optional)</label>
+                        <select name="team" value={formData.team} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                          <option value="">-- Select team --</option>
+                          {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.member_count || 0})</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <p className="text-xs text-green-600 mt-1">💡 You can assign both agent and team simultaneously</p>
+                  </div>
+                )}
+
+                {/* Admin - Team Mode */}
+                {hasRoleForRender("ADMIN") && mode === "team" && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Select Team</label>
+                    <select name="team" value={formData.team} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                      <option value="">-- Select team --</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.member_count || 0})</option>)}
+                    </select>
+                    
+                    {/* Optional Agent selection for admin */}
+                    {agents.length > 0 && (
+                      <div className="mt-2">
+                        <label className="block text-sm font-medium mb-1 text-gray-600">Also assign to Agent (Optional)</label>
+                        <select name="assigned_to" value={formData.assigned_to} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                          <option value="">-- Select agent --</option>
+                          {agents.map(a => (
+                            <option key={a.id} value={a.id}>
+                              {getUserDisplayName(a)} {a.role_name && `(${a.role_name})`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <p className="text-xs text-green-600 mt-1">💡 You can assign both team and agent simultaneously</p>
+                  </div>
+                )}
+
+                {/* Agent/Support Auto-assign */}
+                {hasRoleForRender("AGENT") && (
+                  <div className="bg-blue-50 p-3 rounded">
+                    <p className="text-sm text-blue-700">Ticket will be assigned to you and your team automatically.</p>
+                  </div>
+                )}
+                {hasRoleForRender("SUPPORT") && (
+                  <div className="bg-green-50 p-3 rounded">
+                    <p className="text-sm text-green-700">Ticket will be assigned to you and your team automatically.</p>
+                  </div>
+                )}
               </div>
-            )}
-            {hasRoleForRender("TEAM_LEAD") && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Select Agent from Your Team</label>
-                <select name="assigned_to" value={formData.assigned_to} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                  <option value="">-- Select agent --</option>
-                  {agents.map(a => <option key={a.id} value={a.id}>{getUserDisplayName(a)}</option>)}
-                </select>
-                {agents.length === 0 && <p className="text-red-600 text-sm">No agents in your team</p>}
-              </div>
-            )}
-            {hasRoleForRender("ADMIN") && mode === "agent" && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Select Agent</label>
-                <select name="assigned_to" value={formData.assigned_to} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                  <option value="">-- Select agent --</option>
-                  {agents.map(a => <option key={a.id} value={a.id}>{getUserDisplayName(a)}</option>)}
-                </select>
-              </div>
-            )}
-            {hasRoleForRender("ADMIN") && mode === "team" && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Select Team</label>
-                <select name="team" value={formData.team} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                  <option value="">-- Select team --</option>
-                  {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.member_count || 0})</option>)}
-                </select>
-              </div>
-            )}
-            {hasRoleForRender("AGENT") && (
-              <div className="bg-blue-50 p-3 rounded"><p className="text-sm text-blue-700">Ticket will be assigned to you automatically.</p></div>
-            )}
-            {hasRoleForRender("TEAM_LEAD") && (
-              <div className="bg-purple-50 p-3 rounded"><p className="text-sm text-purple-700">Ticket will be assigned to your team and the selected agent.</p></div>
-            )}
+            </div>
           </div>
 
+          {/* ACTION BUTTONS */}
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-            <button onClick={onHide} className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Cancel</button>
+            <button onClick={onHide} className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">
+              Cancel
+            </button>
             <button
               onClick={handleSubmit}
               disabled={loading || (hasRoleForRender("TEAM_LEAD") && !formData.assigned_to)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
             >
               {loading ? "Creating..." : "Create Ticket"}
             </button>
