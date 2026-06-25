@@ -6,8 +6,23 @@ import publicApi from "./publicApi";
 // ========================
 
 // Get all FAQs (filter supported)
-export const getFAQs = async (params = {}) => {
-  const response = await publicApi.get("/faqs/", { params });
+// export const getFAQs = async (params = {}) => {
+//   const response = await publicApi.get("/faqs/", { params });
+//   return response.data;
+// };
+export const getFAQs = async (
+  page = 1,
+  pageSize = 10,
+  params = {}
+) => {
+  const response = await publicApi.get("/faqs/", {
+    params: {
+      page,
+      page_size: pageSize,
+      ...params,
+    },
+  });
+
   return response.data;
 };
 
@@ -70,5 +85,10 @@ export const submitFAQFeedback = async (data) => {
 // Get feedback (admin)
 export const getFAQFeedback = async () => {
   const response = await api.get("/faq-feedback/");
+  return response.data;
+};
+
+export const incrementFAQView = async (id) => {
+  const response = await publicApi.post(`/faqs/${id}/increment_view/`);
   return response.data;
 };
