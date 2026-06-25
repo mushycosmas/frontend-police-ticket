@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ticket, getChannelConfig } from '../../../../types/tickets/tickets.types';
+import { Ticket } from '../../../../types/tickets/tickets.types';
 import { StatusBadge, PriorityBadge } from '../../../common/Badge';
 import { Button } from '../../../common/Button';
 import { timeAgo } from '../../../../utils/helpers';
@@ -30,8 +30,6 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
   isClosing = false,
   isReturning = false,
 }) => {
-  const channel = getChannelConfig(ticket.channel);
-
   // Normalize status to avoid mismatch issues from backend
   const status = ticket.status?.toUpperCase();
 
@@ -64,7 +62,10 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
       <td className="p-3">
         <div className="flex flex-col">
           <span className="text-sm font-medium text-gray-900">
-            {ticket.customer_name || 'Unknown'}
+            {ticket.customer_detail?.customer_name || 
+             ticket.customer_name || 
+             ticket.customer?.full_name ||
+             'Unknown'}
           </span>
 
           {ticket.customer_phone && (
@@ -73,14 +74,6 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
             </span>
           )}
         </div>
-      </td>
-
-      {/* Channel */}
-      <td className="p-3">
-        <span className="flex items-center gap-1 text-sm">
-          <span>{channel.icon}</span>
-          <span>{channel.label}</span>
-        </span>
       </td>
 
       {/* Status */}
@@ -96,8 +89,10 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
       {/* Agent */}
       <td className="p-3 text-sm">
         {ticket.assigned_to_name ||
-          ticket.agent?.username ||
-          'Unassigned'}
+         ticket.assigned_to?.full_name ||
+         ticket.assigned_to?.username ||
+         ticket.agent?.username ||
+         'Unassigned'}
       </td>
 
       {/* Created */}
@@ -119,10 +114,8 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
           </Button>
 
           {/* Return */}
-          {/* {canReturn && (
-            
-          )} */}
-          <Button
+          {canReturn && (
+            <Button
               size="sm"
               variant="secondary"
               onClick={() => onReturn(ticket)}
@@ -131,6 +124,7 @@ export const TicketsRow: React.FC<TicketsRowProps> = ({
             >
               Return
             </Button>
+          )}
 
           {/* Resolve */}
           {status === 'IN_PROGRESS' && (

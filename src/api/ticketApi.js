@@ -105,3 +105,8 @@ export const getDeletedTickets = (params) => api.get("/tickets/tickets/deleted/"
 
 export const returnTicket = (ticketId, data) =>
   api.post(`/tickets/tickets/${ticketId}/return/`, data);
+
+
+export const updateTicketCategory = (ticketId, categoryId) => {
+  return api.patch(`/tickets/tickets/${ticketId}/update_category/`, { category_id: categoryId });
+};

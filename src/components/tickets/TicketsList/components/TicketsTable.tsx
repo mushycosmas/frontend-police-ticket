@@ -6,7 +6,6 @@ const COLUMNS = [
   'Ticket #',
   'Title',
   'Customer',
-  'Channel',
   'Status',
   'Priority',
   'Agent',

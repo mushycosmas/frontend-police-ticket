@@ -3,8 +3,8 @@
 // =====================
 export type TicketStatus = 
   | 'OPEN'
+  | 'ASSIGNED'
   | 'IN_PROGRESS'
-  | 'ESCALATED'
   | 'RESOLVED'
   | 'CLOSED'
   | 'REOPENED';
@@ -26,7 +26,8 @@ export type TicketChannel =
   | 'WALKIN'
   | 'EMAIL'
   | 'CHAT'
-  | 'WEB';
+  | 'WEB'
+  | string;
 
 // =====================
 // TICKET ATTACHMENT TYPE
@@ -86,26 +87,42 @@ export interface Ticket {
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
-  channel: TicketChannel;
+  channel: TicketChannel | { id: number; name: string; status?: string } | number | string;
   created_at: string;
   updated_at?: string;
   resolved_at?: string | null;
 
+  // Channel fields
+  channel_id?: number;
+  channel_name?: string;
+  channel_status?: string;
+
   // Customer (nested object)
   customer: Customer;
-  customer_detail?: Customer;   // alias for customer
+  customer_detail?: Customer;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
 
   // Assignment
   assigned_to?: number | null;
   assigned_to_name?: string | null;
   assigned_by?: number | null;
+  assigned_by_name?: string | null;
 
   // Team
   team?: number | null;
   team_name?: string | null;
 
+  // Category
+  category?: number | null;
+  category_id?: number | null;
+  category_name?: string | null;
+  category_description?: string | null;
+
   // Location
   street?: number | null;
+  street_id?: number | null;
   street_name?: string | null;
   location_full?: string | null;
   location_details?: {
@@ -118,7 +135,7 @@ export interface Ticket {
   // Attachments & history
   attachments: TicketAttachment[];
   history?: TicketHistory[];
-  timeline?: TimelineItem[];   // computed for UI
+  timeline?: TimelineItem[];
 
   // Optional statistics
   total_tickets?: number;
@@ -133,6 +150,8 @@ export type HistoryAction =
   | 'COMMENTED'
   | 'STATUS_CHANGED'
   | 'PRIORITY_CHANGED'
+  | 'CATEGORY_CHANGED'
+  | 'CHANNEL_CHANGED'
   | 'ASSIGNED'
   | 'UNASSIGNED'
   | 'ATTACHMENT'
@@ -152,6 +171,10 @@ export interface TicketHistory {
   new_priority?: string;
   old_assignee?: string;
   new_assignee?: string;
+  old_category?: string;
+  new_category?: string;
+  old_channel?: string;
+  new_channel?: string;
   created_by?: number;
   created_by_name?: string;
   created_at: string;
@@ -167,6 +190,7 @@ export interface TicketFilters {
   channel?: TicketChannel | '';
   assigned_to?: number | null;
   team?: number | null;
+  category?: number | null;
   date_from?: string;
   date_to?: string;
 }
@@ -198,23 +222,26 @@ export interface CreateTicketData {
   title: string;
   description: string;
   priority: TicketPriority;
-  channel: TicketChannel;
+  channel: TicketChannel | number;
   customer_name: string;
   customer_email: string;
   customer_phone: string;
   customer_nida?: string;
   customer_gender?: string;
   category?: number | null;
+  category_id?: number | null;
   street_id?: number | null;
   assigned_to?: number | null;
   team?: number | null;
-  assigned_by?: number | null;   // ✅ added missing field
+  assigned_by?: number | null;
   attachments?: File[];
 }
 
 export interface UpdateTicketData extends Partial<CreateTicketData> {
   status?: TicketStatus;
   resolved_at?: string | null;
+  priority?: TicketPriority;
+  category_id?: number | null;
 }
 
 // =====================
@@ -226,7 +253,7 @@ export interface TicketStatistics {
   in_progress: number;
   resolved: number;
   closed: number;
-  escalated: number;
+  assigned: number;
   by_priority: Record<TicketPriority, number>;
   by_status: Record<TicketStatus, number>;
 }
@@ -236,8 +263,8 @@ export interface TicketStatistics {
 // =====================
 export const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string }> = {
   OPEN: { label: 'Open', color: 'bg-yellow-100 text-yellow-800' },
-  IN_PROGRESS: { label: 'In Progress', color: 'bg-blue-100 text-blue-800' },
-  ESCALATED: { label: 'Escalated', color: 'bg-red-100 text-red-800' },
+  ASSIGNED: { label: 'Assigned', color: 'bg-blue-100 text-blue-800' },
+  IN_PROGRESS: { label: 'In Progress', color: 'bg-indigo-100 text-indigo-800' },
   RESOLVED: { label: 'Resolved', color: 'bg-green-100 text-green-800' },
   CLOSED: { label: 'Closed', color: 'bg-gray-100 text-gray-800' },
   REOPENED: { label: 'Reopened', color: 'bg-purple-100 text-purple-800' },
@@ -250,37 +277,116 @@ export const PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: str
   LOW: { label: 'Low', color: 'bg-gray-100 text-gray-800' },
 } as const;
 
-export const CHANNEL_CONFIG: Record<TicketChannel, { label: string; icon: string }> = {
-  PHONE: { label: 'Phone', icon: '📞' },
-  WALKIN: { label: 'Walk-in', icon: '🚶' },
-  EMAIL: { label: 'Email', icon: '📧' },
-  CHAT: { label: 'Chat', icon: '💬' },
-  WEB: { label: 'Web Form', icon: '🌐' },
-} as const;
+export const CHANNEL_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+  // Standard channels
+  PHONE: { label: 'Phone', icon: '📞', color: 'blue' },
+  WALKIN: { label: 'Walk-in', icon: '🚶', color: 'green' },
+  EMAIL: { label: 'Email', icon: '📧', color: 'purple' },
+  CHAT: { label: 'Chat', icon: '💬', color: 'indigo' },
+  WEB: { label: 'Web Form', icon: '🌐', color: 'teal' },
+  
+  // Database channels
+  'loss report portal': { label: 'Loss Report Portal', icon: '📋', color: 'blue' },
+  'taarifa za uhalifu': { label: 'Taarifa za Uhalifu', icon: '🚨', color: 'red' },
+  'polisi web/tovuti': { label: 'Police Website', icon: '🌐', color: 'green' },
+  'fire arms portal': { label: 'Firearms Portal', icon: '🔫', color: 'orange' },
+  'hrmis': { label: 'HRMIS', icon: '👥', color: 'purple' },
+  'ticket support system': { label: 'Support System', icon: '🎫', color: 'indigo' },
+};
 
-// Helper functions
-export const getStatusLabel = (status: TicketStatus): string => STATUS_CONFIG[status]?.label ?? status;
-export const getStatusColor = (status: TicketStatus): string => STATUS_CONFIG[status]?.color ?? 'bg-gray-100 text-gray-800';
-export const getPriorityLabel = (priority: TicketPriority): string => PRIORITY_CONFIG[priority]?.label ?? priority;
-export const getPriorityColor = (priority: TicketPriority): string => PRIORITY_CONFIG[priority]?.color ?? 'bg-gray-100 text-gray-800';
-export const getChannelLabel = (channel: TicketChannel): string => CHANNEL_CONFIG[channel]?.label ?? channel;
-export const getChannelIcon = (channel: TicketChannel): string => CHANNEL_CONFIG[channel]?.icon ?? '📋';
+// =====================
+// HELPER FUNCTIONS
+// =====================
+
+// Status Helpers
+export const getStatusLabel = (status: TicketStatus): string => 
+  STATUS_CONFIG[status]?.label ?? status;
+
+export const getStatusColor = (status: TicketStatus): string => 
+  STATUS_CONFIG[status]?.color ?? 'bg-gray-100 text-gray-800';
 
 export const getStatusConfig = (status: string): { label: string; color: string } =>
   STATUS_CONFIG[status as TicketStatus] ?? { label: status, color: 'bg-gray-100 text-gray-800' };
 
+// Priority Helpers
+export const getPriorityLabel = (priority: TicketPriority): string => 
+  PRIORITY_CONFIG[priority]?.label ?? priority;
+
+export const getPriorityColor = (priority: TicketPriority): string => 
+  PRIORITY_CONFIG[priority]?.color ?? 'bg-gray-100 text-gray-800';
+
 export const getPriorityConfig = (priority: string): { label: string; color: string } =>
   PRIORITY_CONFIG[priority as TicketPriority] ?? { label: priority, color: 'bg-gray-100 text-gray-800' };
 
-export const getChannelConfig = (channel: string): { label: string; icon: string } =>
-  CHANNEL_CONFIG[channel as TicketChannel] ?? { label: channel, icon: '📋' };
+// Channel Helpers
+export const getChannelName = (channel: any): string => {
+  if (!channel) return 'Unknown';
+  
+  // If it's a string, return it
+  if (typeof channel === 'string') {
+    return channel;
+  }
+  
+  // If it's an object with a name property
+  if (typeof channel === 'object' && channel !== null && 'name' in channel) {
+    return channel.name || 'Unknown';
+  }
+  
+  // If it's an object with an id
+  if (typeof channel === 'object' && channel !== null && 'id' in channel) {
+    return channel.name || `Channel ${channel.id}`;
+  }
+  
+  // If it's a number
+  if (typeof channel === 'number') {
+    return `Channel ${channel}`;
+  }
+  
+  return 'Unknown';
+};
 
-// Type guards
+export const getChannelConfig = (channel: any): { label: string; icon: string; color: string } => {
+  const channelName = getChannelName(channel);
+  
+  // Try exact match first
+  if (CHANNEL_CONFIG[channelName]) {
+    return CHANNEL_CONFIG[channelName];
+  }
+  
+  // Try case-insensitive match
+  const lowerKey = channelName.toLowerCase();
+  for (const [key, value] of Object.entries(CHANNEL_CONFIG)) {
+    if (key.toLowerCase() === lowerKey) {
+      return value;
+    }
+  }
+  
+  // Return default
+  return { 
+    label: channelName || 'Unknown', 
+    icon: '📋', 
+    color: 'gray' 
+  };
+};
+
+export const getChannelLabel = (channel: any): string => {
+  return getChannelConfig(channel).label;
+};
+
+export const getChannelIcon = (channel: any): string => {
+  return getChannelConfig(channel).icon;
+};
+
+export const getChannelColor = (channel: any): string => {
+  return getChannelConfig(channel).color;
+};
+
+// Type Guards
 export const isValidTicketStatus = (status: string): status is TicketStatus =>
   Object.keys(STATUS_CONFIG).includes(status);
 
 export const isValidTicketPriority = (priority: string): priority is TicketPriority =>
   Object.keys(PRIORITY_CONFIG).includes(priority);
 
-export const isValidTicketChannel = (channel: string): channel is TicketChannel =>
+export const isValidTicketChannel = (channel: string): boolean =>
   Object.keys(CHANNEL_CONFIG).includes(channel);

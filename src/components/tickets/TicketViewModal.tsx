@@ -1,6 +1,8 @@
+// src/components/modals/TicketViewModal.tsx
 import React, { useState, useEffect } from "react";
 import AssignTicketForm from "./AssignTicketForm";
 import UpdatePriorityModal from "./UpdatePriorityModal";
+import UpdateCategoryModal from "./UpdateCategoryModal";
 import { StatusBadge, PriorityBadge } from "../common/Badge";
 import TicketHistory from "./TicketHistory";
 import { getTicket } from "../../api/ticketApi";
@@ -22,6 +24,7 @@ const TicketViewModal: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPriorityModal, setShowPriorityModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   // Fetch full ticket details when modal opens or ticketId changes
   useEffect(() => {
@@ -35,6 +38,7 @@ const TicketViewModal: React.FC<Props> = ({
       setLoading(true);
       setError(null);
       const response = await getTicket(ticketId!);
+      console.log("📦 Ticket data:", response.data); // ✅ Debug log
       setTicket(response.data);
     } catch (err) {
       console.error("Failed to fetch ticket details:", err);
@@ -63,9 +67,10 @@ const TicketViewModal: React.FC<Props> = ({
 
   const userRole = getUserRole();
   
-  // Only ADMIN and TEAM_LEAD can assign tickets and update priority
+  // Only ADMIN and TEAM_LEAD can assign tickets, update priority, and update category
   const canAssign = userRole === "ADMIN" || userRole === "TEAM_LEAD";
   const canUpdatePriority = userRole === "ADMIN" || userRole === "TEAM_LEAD";
+  const canUpdateCategory = userRole === "ADMIN" || userRole === "TEAM_LEAD";
 
   // Helper to format date
   const formatDate = (dateString: string) => {
@@ -77,6 +82,36 @@ const TicketViewModal: React.FC<Props> = ({
     setShowPriorityModal(false);
     fetchTicketDetails();
     if (onRefresh) onRefresh();
+  };
+
+  const handleCategoryUpdate = () => {
+    setShowCategoryModal(false);
+    fetchTicketDetails();
+    if (onRefresh) onRefresh();
+  };
+
+  // ✅ Helper to get channel display name
+  const getChannelDisplay = () => {
+    if (ticket.channel_name) return ticket.channel_name;
+    if (ticket.channel && typeof ticket.channel === 'object' && ticket.channel.name) {
+      return ticket.channel.name;
+    }
+    if (ticket.channel && typeof ticket.channel === 'string') {
+      return ticket.channel;
+    }
+    return "-";
+  };
+
+  // ✅ Helper to get category display name
+  const getCategoryDisplay = () => {
+    if (ticket.category_name) return ticket.category_name;
+    if (ticket.category && typeof ticket.category === 'object' && ticket.category.name) {
+      return ticket.category.name;
+    }
+    if (ticket.category && typeof ticket.category === 'string') {
+      return ticket.category;
+    }
+    return "-";
   };
 
   // Show loading state
@@ -163,7 +198,8 @@ const TicketViewModal: React.FC<Props> = ({
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Channel</label>
                   <div className="text-sm text-gray-800">
-                    {ticket.channel || "-"}
+                    {/* ✅ Fix: Use channel_name instead of channel */}
+                    {getChannelDisplay()}
                   </div>
                 </div>
               </div>
@@ -171,12 +207,32 @@ const TicketViewModal: React.FC<Props> = ({
 
             {/* ===================== TICKET DETAILS ===================== */}
             <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-800 mb-3">Ticket Details</h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-semibold text-gray-800">Ticket Details</h3>
+                {canUpdateCategory && (
+                  <button
+                    onClick={() => setShowCategoryModal(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edit Category
+                  </button>
+                )}
+              </div>
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Title</label>
                   <div className="text-sm font-medium text-gray-800">
                     {ticket.title || "-"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Category</label>
+                  <div className="text-sm text-gray-800">
+                    {/* ✅ Fix: Use category_name instead of category */}
+                    {getCategoryDisplay()}
                   </div>
                 </div>
                 <div>
@@ -202,17 +258,30 @@ const TicketViewModal: React.FC<Props> = ({
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-semibold text-gray-800">Workflow</h3>
-                {canUpdatePriority && (
-                  <button
-                    onClick={() => setShowPriorityModal(true)}
-                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    Edit Priority
-                  </button>
-                )}
+                <div className="flex gap-2">
+                  {canUpdateCategory && (
+                    <button
+                      onClick={() => setShowCategoryModal(true)}
+                      className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      Category
+                    </button>
+                  )}
+                  {canUpdatePriority && (
+                    <button
+                      onClick={() => setShowPriorityModal(true)}
+                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      Priority
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -222,6 +291,13 @@ const TicketViewModal: React.FC<Props> = ({
                 <div>
                   <p className="text-gray-500 text-xs mb-1">Priority</p>
                   <PriorityBadge priority={ticket.priority} />
+                </div>
+                <div>
+                  <p className="text-gray-500 text-xs mb-1">Category</p>
+                  <span className="inline-block px-2 py-1 rounded bg-purple-100 text-purple-700 text-xs font-medium">
+                    {/* ✅ Fix: Use category_name */}
+                    {getCategoryDisplay()}
+                  </span>
                 </div>
                 <div>
                   <p className="text-gray-500 text-xs mb-1">Team</p>
@@ -327,13 +403,23 @@ const TicketViewModal: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Priority Update Modal - Only shown for ADMIN and TEAM_LEAD */}
+      {/* Priority Update Modal */}
       {canUpdatePriority && (
         <UpdatePriorityModal
           show={showPriorityModal}
           ticket={ticket}
           onHide={() => setShowPriorityModal(false)}
           onSuccess={handlePriorityUpdate}
+        />
+      )}
+
+      {/* Category Update Modal */}
+      {canUpdateCategory && (
+        <UpdateCategoryModal
+          show={showCategoryModal}
+          ticket={ticket}
+          onHide={() => setShowCategoryModal(false)}
+          onSuccess={handleCategoryUpdate}
         />
       )}
     </>
