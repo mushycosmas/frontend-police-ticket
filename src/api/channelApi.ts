@@ -1,35 +1,74 @@
 import publicApi from "./publicApi";
 
 // =========================
-// TYPE
+// TYPE (FRONTEND STYLE)
 // =========================
 export interface Channel {
   id: number;
   name: string;
   status: "private" | "public";
+
+  teamId?: number;
+
+  team?: {
+    id: number;
+    name: string;
+    description?: string;
+    department?: string;
+  };
+
   created_at?: string;
   updated_at?: string;
 }
 
-// Get all channels
-export const getChannels = () => publicApi.get("/channels/channels/");
+// =========================
+// GET
+// =========================
+export const getChannels = () =>
+  publicApi.get("/channels/channels/");
 
-// Get single channel by id
 export const getChannel = (id: number) =>
   publicApi.get(`/channels/channels/${id}/`);
 
-// Create channel
-export const createChannel = (data: any) =>
-  publicApi.post("/channels/channels/", data);
+// =========================
+// CREATE (FIXED)
+// =========================
+export const createChannel = (data: {
+  name: string;
+  status: "private" | "public";
+  teamId: number;
+}) =>
+  publicApi.post("/channels/channels/", {
+    name: data.name,
+    status: data.status,
+    team_id: data.teamId, // ✅ convert here
+  });
 
-// Update channel
-export const updateChannel = (id: number, data: any) =>
-  publicApi.put(`/channels/channels/${id}/`, data);
+// =========================
+// UPDATE (FIXED)
+// =========================
+export const updateChannel = (
+  id: number,
+  data: {
+    name: string;
+    status: "private" | "public";
+    teamId: number;
+  }
+) =>
+  publicApi.put(`/channels/channels/${id}/`, {
+    name: data.name,
+    status: data.status,
+    team_id: data.teamId, // ✅ convert here
+  });
 
-// Patch channel
+// =========================
+// PATCH
+// =========================
 export const patchChannel = (id: number, data: any) =>
   publicApi.patch(`/channels/channels/${id}/`, data);
 
-// Delete channel
+// =========================
+// DELETE
+// =========================
 export const deleteChannel = (id: number) =>
   publicApi.delete(`/channels/channels/${id}/`);
