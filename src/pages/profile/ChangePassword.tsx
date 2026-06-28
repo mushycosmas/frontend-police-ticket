@@ -73,6 +73,7 @@ export const ChangePassword = () => {
       await changePassword({
         old_password: form.old_password,
         new_password: form.new_password,
+         confirm_password: form.confirm_password
       });
       
       setMessage({ type: 'success', text: 'Password changed successfully!' });

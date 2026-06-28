@@ -53,20 +53,46 @@ import FaqsPublic from "../pages/Home/FaqsPublic";
 
 /* ========== ROUTER CONFIGURATION ========== */
 const router = createBrowserRouter([
+  /* ========== PUBLIC ROUTES (No Layout) ========== */
   {
     path: "/",
-    element: <Home />,
+    
+     element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <Home />,
+      },
+    ],
   },
   {
     path: "/login",
-    element: <Login />,
+     element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <Login />,
+      },
+    ],
   },
   {
     path: "/report",
     element: <PublicCreateTicket />,
   },
+  
+  /* ========== PUBLIC ROUTE WITH APP LAYOUT (Sidebar hidden) ========== */
+  {
+    path: "/faqs",
+    element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <FaqsPublic />,
+      },
+    ],
+  },
 
-  /* PROTECTED ROUTES */
+  /* ========== PROTECTED ROUTES WITH APP LAYOUT ========== */
   {
     element: <AppLayout />,
     children: [
@@ -146,7 +172,7 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-       {
+      {
         path: "/admin/deleted-tickets",
         element: (
           <ProtectedRoute allowedPermissions={["view_ticket"]}>
@@ -164,9 +190,6 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-
-      /* ========== QA ========== */
-      
 
       /* ========== ADMINISTRATION ========== */
       {
@@ -193,8 +216,6 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-
-      
       {
         path: "/admin/teams",
         element: (
@@ -210,7 +231,8 @@ const router = createBrowserRouter([
             <Categories />
           </ProtectedRoute>
         ),
-      }, {
+      },
+      {
         path: "/admin/channels",
         element: (
           <ProtectedRoute allowedPermissions={["view_channel"]}>
@@ -226,14 +248,14 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-       {
-      path: "/admin/faqs",
-      element: (
-        <ProtectedRoute allowedPermissions={["view_faq"]}>
-          <Faqs />
-        </ProtectedRoute>
-      ),
-    },
+      {
+        path: "/admin/faqs",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_faq"]}>
+            <Faqs />
+          </ProtectedRoute>
+        ),
+      },
       {
         path: "/admin/issue-templates",
         element: (
@@ -296,38 +318,38 @@ const router = createBrowserRouter([
       },
 
       /* ========== SYSTEM ========== */
-     {
-      path: "/settings",
-      element: (
-        <ProtectedRoute allowedPermissions={["view_settings"]}>
-          <Settings />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/logs",
-      element: (
-        <ProtectedRoute allowedPermissions={["view_logs"]}>
-          <SystemLogs />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/profile",
-      element: (
-        <ProtectedRoute allowedPermissions={["view_profile"]}>
-          <Profile />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/change-password",
-      element: (
-        <ProtectedRoute allowedPermissions={["view_profile"]}>
-          <ChangePassword />
-        </ProtectedRoute>
-      ),
-    },
+      {
+        path: "/settings",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_settings"]}>
+            <Settings />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/logs",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_logs"]}>
+            <SystemLogs />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/profile",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_profile"]}>
+            <Profile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/change-password",
+        element: (
+          <ProtectedRoute allowedPermissions={["view_profile"]}>
+            <ChangePassword />
+          </ProtectedRoute>
+        ),
+      },
     ],
   },
 
@@ -336,11 +358,6 @@ const router = createBrowserRouter([
     path: "*",
     element: <Navigate to="/dashboard" replace />,
   },
-  {
-  path: "/faqs",
-  element: <FaqsPublic />,
-},
- 
 ]);
 
 const AppRoutes = () => {

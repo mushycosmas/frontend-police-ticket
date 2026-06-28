@@ -1,10 +1,13 @@
+// src/context/AuthContext.tsx
 import React, {
   createContext,
   useContext,
   useState,
   ReactNode,
+  useEffect,
+  useCallback,
 } from "react";
-import { loginUser } from "../api/authApi";
+import { loginUser, changePassword, refreshToken } from "../api/authApi";
 
 /* =========================
    USER TYPE
@@ -15,14 +18,17 @@ interface User {
   email: string;
   first_name?: string;
   last_name?: string;
+  full_name?: string;
   role?: string | { name: string };
   role_id?: number;
   team_id?: number | null;
   team_name?: string | null;
   is_active?: boolean;
   permissions: string[];
-  rank:String;
-  
+  rank?: string;
+  is_default_password?: boolean;
+  needs_password_change?: boolean;
+  last_password_change?: string | null;
 }
 
 /* =========================
@@ -33,13 +39,22 @@ interface AuthContextType {
   token: string | null;
   permissions: string[];
   isAuthenticated: boolean;
+  isLoading: boolean;
+  needsPasswordChange: boolean;
   login: (credentials: {
     username: string;
     password: string;
   }) => Promise<User>;
   logout: () => void;
+  changePassword: (data: {
+    current_password: string;
+    new_password: string;
+    confirm_password: string;
+  }) => Promise<void>;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
+  refreshAuthToken: () => Promise<boolean>;
+  setNeedsPasswordChange: (value: boolean) => void;
 }
 
 /* =========================
@@ -69,6 +84,8 @@ const safeParseUser = (data: string | null): User | null => {
         typeof parsed.role === "object"
           ? parsed.role?.name
           : parsed.role,
+      needs_password_change: parsed.needs_password_change || false,
+      is_default_password: parsed.is_default_password || false,
     };
   } catch {
     return null;
@@ -76,11 +93,12 @@ const safeParseUser = (data: string | null): User | null => {
 };
 
 /* =========================
-   INITIAL STATE (IMPORTANT FIX)
+   INITIAL STATE
 ========================= */
 const initialToken = localStorage.getItem("token");
 const initialUser = safeParseUser(localStorage.getItem("user"));
 const initialPermissions = initialUser?.permissions || [];
+const initialNeedsPasswordChange = initialUser?.needs_password_change || false;
 
 /* =========================
    PROVIDER
@@ -88,44 +106,128 @@ const initialPermissions = initialUser?.permissions || [];
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(initialToken);
   const [user, setUser] = useState<User | null>(initialUser);
-  const [permissions, setPermissions] =
-    useState<string[]>(initialPermissions);
+  const [permissions, setPermissions] = useState<string[]>(initialPermissions);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [needsPasswordChange, setNeedsPasswordChange] = useState<boolean>(
+    initialNeedsPasswordChange
+  );
 
-  /* =========================
-     LOGIN
-  ========================= */
+  // =========================
+  // VALIDATE TOKEN ON MOUNT
+  // =========================
+  useEffect(() => {
+    const validateToken = async () => {
+      if (token && user) {
+        setIsLoading(true);
+        try {
+          // Try to refresh token to validate it
+          const refreshed = await refreshAuthToken();
+          if (!refreshed) {
+            logout();
+          }
+        } catch {
+          logout();
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    validateToken();
+  }, []);
+
+  // =========================
+  // REFRESH TOKEN
+  // =========================
+  const refreshAuthToken = useCallback(async (): Promise<boolean> => {
+    const refresh = localStorage.getItem("refresh");
+    if (!refresh) return false;
+
+    try {
+      const response = await refreshToken(refresh);
+      const { access } = response.data;
+      localStorage.setItem("token", access);
+      setToken(access);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // =========================
+  // LOGIN
+  // =========================
   const login = async (credentials: {
     username: string;
     password: string;
   }): Promise<User> => {
-    const response = await loginUser(credentials);
+    setIsLoading(true);
+    try {
+      const response = await loginUser(credentials);
 
-    const { access, refresh, user } = response.data;
+      const { access, refresh, user: userData, needs_password_change } = response.data;
 
-    const safeUser: User = {
-      ...user,
-      permissions: normalizePermissions(user.permissions),
-      role:
-        typeof user.role === "object"
-          ? user.role?.name
-          : user.role,
-    };
+      const safeUser: User = {
+        ...userData,
+        permissions: normalizePermissions(userData.permissions),
+        role:
+          typeof userData.role === "object"
+            ? userData.role?.name
+            : userData.role,
+        needs_password_change: needs_password_change || userData.needs_password_change || false,
+        is_default_password: needs_password_change || userData.is_default_password || false,
+      };
 
-    localStorage.setItem("token", access);
-    localStorage.setItem("refresh", refresh);
-    localStorage.setItem("user", JSON.stringify(safeUser));
+      localStorage.setItem("token", access);
+      localStorage.setItem("refresh", refresh);
+      localStorage.setItem("user", JSON.stringify(safeUser));
 
-    setToken(access);
-    setUser(safeUser);
-    setPermissions(safeUser.permissions);
+      setToken(access);
+      setUser(safeUser);
+      setPermissions(safeUser.permissions);
+      setNeedsPasswordChange(safeUser.needs_password_change || false);
 
-    return safeUser;
+      return safeUser;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  /* =========================
-     LOGOUT
-  ========================= */
-  const logout = () => {
+  // =========================
+  // CHANGE PASSWORD
+  // =========================
+  const changePassword = async (data: {
+    current_password: string;
+    new_password: string;
+    confirm_password: string;
+  }): Promise<void> => {
+    setIsLoading(true);
+    try {
+      await changePassword(data);
+
+      // ✅ Update user after password change
+      if (user) {
+        const updatedUser: User = {
+          ...user,
+          is_default_password: false,
+          needs_password_change: false,
+        };
+
+        setUser(updatedUser);
+        setNeedsPasswordChange(false);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // =========================
+  // LOGOUT
+  // =========================
+  const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("refresh");
     localStorage.removeItem("user");
@@ -133,38 +235,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(null);
     setUser(null);
     setPermissions([]);
-  };
+    setNeedsPasswordChange(false);
+  }, []);
 
-  /* =========================
-     PERMISSIONS
-  ========================= */
-  const hasPermission = (permission: string) => {
-    if (!permission) return true;
-    if (permissions.includes("*")) return true;
-    return permissions.includes(permission);
-  };
+  // =========================
+  // PERMISSIONS
+  // =========================
+  const hasPermission = useCallback(
+    (permission: string) => {
+      if (!permission) return true;
+      if (permissions.includes("*")) return true;
+      return permissions.includes(permission);
+    },
+    [permissions]
+  );
 
-  const hasAnyPermission = (perms: string[]) => {
-    if (!perms?.length) return true;
-    if (permissions.includes("*")) return true;
+  const hasAnyPermission = useCallback(
+    (perms: string[]) => {
+      if (!perms?.length) return true;
+      if (permissions.includes("*")) return true;
+      return perms.some((p) => permissions.includes(p));
+    },
+    [permissions]
+  );
 
-    return perms.some((p) => permissions.includes(p));
-  };
+  // =========================
+  // SET NEEDS PASSWORD CHANGE
+  // =========================
+  const setNeedsPasswordChangeLocal = useCallback((value: boolean) => {
+    setNeedsPasswordChange(value);
+    if (user) {
+      const updatedUser = { ...user, needs_password_change: value };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+    }
+  }, [user]);
 
-  /* =========================
-     CONTEXT VALUE
-  ========================= */
+  // =========================
+  // CONTEXT VALUE
+  // =========================
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
         permissions,
-        isAuthenticated: !!token,
+        isAuthenticated: !!token && !!user,
+        isLoading,
+        needsPasswordChange,
         login,
         logout,
+        changePassword,
         hasPermission,
         hasAnyPermission,
+        refreshAuthToken,
+        setNeedsPasswordChange: setNeedsPasswordChangeLocal,
       }}
     >
       {children}

@@ -53,11 +53,10 @@ import FaqsPublic from "../pages/Home/FaqsPublic";
 
 /* ========== ROUTER CONFIGURATION ========== */
 const router = createBrowserRouter([
-  /* ========== PUBLIC ROUTES (No Layout) ========== */
+  /* ========== PUBLIC ROUTES ========== */
   {
     path: "/",
-    
-     element: <AppLayout />,
+    element: <AppLayout />,
     children: [
       {
         index: true,
@@ -67,7 +66,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/login",
-     element: <AppLayout />,
+    element: <AppLayout />,
     children: [
       {
         index: true,
@@ -80,7 +79,7 @@ const router = createBrowserRouter([
     element: <PublicCreateTicket />,
   },
   
-  /* ========== PUBLIC ROUTE WITH APP LAYOUT (Sidebar hidden) ========== */
+  /* ========== PUBLIC FAQS ========== */
   {
     path: "/faqs",
     element: <AppLayout />,
@@ -92,7 +91,7 @@ const router = createBrowserRouter([
     ],
   },
 
-  /* ========== PROTECTED ROUTES WITH APP LAYOUT ========== */
+  /* ========== PROTECTED ROUTES ========== */
   {
     element: <AppLayout />,
     children: [
@@ -115,7 +114,6 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      
       {
         path: "/tickets/my",
         element: (
@@ -334,6 +332,8 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+
+      /* ========== USER PROFILE ========== */
       {
         path: "/profile",
         element: (
@@ -342,10 +342,15 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      
+      /* ========== CHANGE PASSWORD ========== */
       {
         path: "/change-password",
         element: (
-          <ProtectedRoute allowedPermissions={["view_profile"]}>
+          <ProtectedRoute 
+            allowedPermissions={["view_profile"]}
+            requiresPasswordChange={true}
+          >
             <ChangePassword />
           </ProtectedRoute>
         ),
