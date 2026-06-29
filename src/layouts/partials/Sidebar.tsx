@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import LogoutButton from "../../components/common/LogoutButton";
 import { useAuth } from "../../context/AuthContext";
@@ -37,13 +37,6 @@ const menuGroups: MenuGroup[] = [
     permission: "view_ticket",
     children: [
       { to: "/tickets", label: "All Tickets", permission: "view_ticket" },
-      // { to: "/tickets/my", label: "My Tickets", permission: "view_ticket" },
-      // { to: "/tickets/assigned", label: "Assigned Tickets", permission: "view_ticket" },
-      // { to: "/tickets/unassigned", label: "Unassigned Tickets", permission: "view_ticket" },
-      // { to: "/tickets/open", label: "Open Tickets", permission: "view_ticket" },
-      // { to: "/tickets/in-progress", label: "In Progress", permission: "view_ticket" },
-      // { to: "/tickets/resolved", label: "Resolved Tickets", permission: "view_ticket" },
-      // { to: "/tickets/closed", label: "Closed Tickets", permission: "view_ticket" },
       { to: "/admin/deleted-tickets", label: "Deleted Tickets", permission: "view_deleted_ticket" },
     ],
   },
@@ -113,14 +106,22 @@ const menuGroups: MenuGroup[] = [
 /* =========================
    SIDEBAR COMPONENT
 ========================= */
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isMobile?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  isMobile = false, 
+  onClose 
+}) => {
   const location = useLocation();
   const { user, permissions } = useAuth();
 
   /* =========================
      ROLE NORMALIZER
   ========================= */
-  const normalizeRole = (role: any): string => {
+  const normalizeRole = useCallback((role: any): string => {
     if (!role) return "UNKNOWN";
 
     if (typeof role === "string") {
@@ -132,36 +133,38 @@ export const Sidebar: React.FC = () => {
     }
 
     return String(role).trim().toUpperCase();
-  };
+  }, []);
 
-  const userRole = normalizeRole(user?.role);
+  const userRole = useMemo(() => normalizeRole(user?.role), [user?.role, normalizeRole]);
 
   /* =========================
      PERMISSION CHECK
   ========================= */
-  const hasPermission = (perm: string): boolean => {
+  const hasPermission = useCallback((perm: string): boolean => {
     if (!perm) return true;
     if (!Array.isArray(permissions)) return false;
     if (permissions.includes("*")) return true;
     return permissions.includes(perm);
-  };
+  }, [permissions]);
 
   /* =========================
      FILTER MENU
   ========================= */
-  const filteredMenuGroups = menuGroups
-    .map((group) => {
-      const filteredChildren = group.children.filter((child) =>
-        hasPermission(child.permission)
-      );
-      return { ...group, children: filteredChildren };
-    })
-    .filter((group) => group.children.length > 0);
+  const filteredMenuGroups = useMemo(() => {
+    return menuGroups
+      .map((group) => {
+        const filteredChildren = group.children.filter((child) =>
+          hasPermission(child.permission)
+        );
+        return { ...group, children: filteredChildren };
+      })
+      .filter((group) => group.children.length > 0);
+  }, [hasPermission]);
 
   /* =========================
      INITIAL OPEN STATE
   ========================= */
-  const getInitialOpenState = (): Record<string, boolean> => {
+  const getInitialOpenState = useCallback((): Record<string, boolean> => {
     const state: Record<string, boolean> = {};
 
     filteredMenuGroups.forEach((group) => {
@@ -174,7 +177,7 @@ export const Sidebar: React.FC = () => {
     });
 
     return state;
-  };
+  }, [filteredMenuGroups, location.pathname]);
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(
     getInitialOpenState()
@@ -185,58 +188,81 @@ export const Sidebar: React.FC = () => {
   ========================= */
   useEffect(() => {
     setOpenMenus(getInitialOpenState());
-  }, [location.pathname]);
+  }, [location.pathname, getInitialOpenState]);
 
   /* =========================
      HANDLERS
   ========================= */
-  const toggleMenu = (label: string) => {
+  const toggleMenu = useCallback((label: string) => {
     setOpenMenus((prev) => ({
       ...prev,
       [label]: !prev[label],
     }));
-  };
+  }, []);
+
+  const handleNavClick = useCallback(() => {
+    if (isMobile && onClose) {
+      onClose();
+    }
+  }, [isMobile, onClose]);
 
   /* =========================
      RENDER
   ========================= */
   return (
-    <aside className="w-64 h-full bg-brand-primary flex flex-col border-r border-blue-900">
-      {/* HEADER */}
-      <div className="px-6 py-6 border-b border-brand-light">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center">
-            <span className="text-brand-primary font-bold text-lg">T</span>
+    <aside className={`
+      h-full bg-brand-primary flex flex-col
+      ${isMobile ? 'w-72' : 'w-64'}
+    `}>
+      {/* HEADER - with close button on mobile */}
+      <div className="px-4 sm:px-6 py-4 sm:py-6 border-b border-blue-900 flex items-center justify-between">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
+            <span className="text-brand-primary font-bold text-base sm:text-lg">T</span>
           </div>
-          <div>
-            <p className="text-white font-bold text-sm">TSS Portal</p>
-            <p className="text-blue-300 text-xs">Support System</p>
+          <div className="min-w-0">
+            <p className="text-white font-bold text-sm sm:text-base truncate">TSS Portal</p>
+            <p className="text-blue-300 text-[10px] sm:text-xs truncate">Support System</p>
           </div>
         </div>
+        
+        {/* Close button - Mobile only */}
+        {isMobile && (
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-blue-800/50 text-blue-300 hover:text-white transition-colors"
+            aria-label="Close menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* NAVIGATION */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      <nav className="flex-1 px-2 sm:px-3 py-3 sm:py-4 overflow-y-auto">
         {filteredMenuGroups.map((group) => {
           const isOpen = openMenus[group.label];
 
           return (
-            <div key={group.label} className="mb-2">
+            <div key={group.label} className="mb-1 sm:mb-2">
               {/* GROUP HEADER */}
               <button
                 onClick={() => toggleMenu(group.label)}
-                className="w-full flex items-center justify-between px-3 py-2 text-blue-200 hover:bg-brand-light rounded-lg transition-all duration-200"
+                className="w-full flex items-center justify-between px-2 sm:px-3 py-2 text-blue-200 hover:bg-blue-800/30 rounded-lg transition-all duration-200"
+                aria-expanded={isOpen}
               >
-                <span className="flex items-center gap-3">
-                  <span className="text-base w-5 text-center">
+                <span className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <span className="text-base sm:text-lg w-5 text-center flex-shrink-0">
                     {group.icon}
                   </span>
-                  <span className="text-sm font-medium">
+                  <span className="text-xs sm:text-sm font-medium truncate">
                     {group.label}
                   </span>
                 </span>
                 <span
-                  className={`text-xs transition-transform duration-200 ${
+                  className={`text-xs transition-transform duration-200 flex-shrink-0 ml-2 ${
                     isOpen ? "rotate-180" : ""
                   }`}
                 >
@@ -246,20 +272,22 @@ export const Sidebar: React.FC = () => {
 
               {/* CHILDREN */}
               <div
-                className={`ml-4 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
-                  isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-                }`}
+                className={`
+                  ml-4 sm:ml-5 mt-1 space-y-0.5 sm:space-y-1 overflow-hidden transition-all duration-300
+                  ${isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}
+                `}
               >
                 {group.children.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    onClick={handleNavClick}
                     className={({ isActive }) =>
-                      `block px-3 py-2 text-sm rounded-lg transition-all duration-200
+                      `block px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-all duration-200
                       ${
                         isActive
                           ? "bg-white text-brand-primary font-medium shadow-sm"
-                          : "text-blue-200 hover:bg-brand-light hover:text-white"
+                          : "text-blue-200 hover:bg-blue-800/30 hover:text-white"
                       }`
                     }
                   >
@@ -273,36 +301,24 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* USER SECTION */}
-      <div className="px-4 py-4 border-t border-brand-light">
+      <div className="px-3 sm:px-4 py-3 sm:py-4 border-t border-blue-900 flex-shrink-0">
         {/* User Info */}
-        <div className="mb-3">
-          <p className="text-white text-sm font-medium">
+        <div className="mb-2 sm:mb-3">
+          <p className="text-white text-xs sm:text-sm font-medium truncate">
             {`${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
               user?.username ||
               "Guest"}
           </p>
-          <p className="text-blue-300 text-xs">{userRole}</p>
+          <p className="text-blue-300 text-[10px] sm:text-xs truncate">{userRole}</p>
         </div>
 
-        {/* Quick Actions */}
-        {/* <div className="flex flex-col gap-1 mb-3">
-          <NavLink
-            to="/profile"
-            className="text-xs text-blue-200 hover:text-white transition-colors"
-          >
-            👤 My Profile
-          </NavLink>
-          <NavLink
-            to="/change-password"
-            className="text-xs text-blue-200 hover:text-white transition-colors"
-          >
-            🔒 Change Password
-          </NavLink>
-        </div> */}
-
-        {/* Logout Button */}
-        <LogoutButton />
+        {/* Logout Button - Mobile friendly */}
+        <div className="w-full">
+          <LogoutButton />
+        </div>
       </div>
     </aside>
   );
 };
+
+export default Sidebar;
