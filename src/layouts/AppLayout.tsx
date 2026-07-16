@@ -85,14 +85,15 @@ const AppLayout: React.FC = () => {
         {/* Sidebar */}
         <div
           className={`
-            ${isMobile ? 'fixed' : 'relative'}
+            ${isMobile ? 'fixed' : 'sticky'}
             ${isMobile ? 'z-50' : 'z-30'}
-            ${isMobile ? 'inset-y-0 left-0' : ''}
+            ${isMobile ? 'inset-y-0 left-0' : 'top-0'}
             ${isMobile ? 'w-72' : 'w-64'}
             ${isMobile ? 'transform transition-transform duration-300 ease-in-out' : ''}
             ${isMobile && !isSidebarOpen ? '-translate-x-full' : 'translate-x-0'}
-            shrink-0 h-full
+            ${!isMobile ? 'h-screen' : ''}
             ${isMobile ? 'shadow-2xl' : 'shadow-sm'}
+            ${!isMobile ? 'overflow-y-auto' : ''}
           `}
         >
           <Sidebar 
