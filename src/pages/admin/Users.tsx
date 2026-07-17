@@ -8,7 +8,7 @@ import {
   getTeams,
   createUser,
 } from "../../api/userApi";
-import { getRoles } from "../../api/roleApi"; // Fixed: changed from getRole to getRoles
+import { getRoles } from "../../api/roleApi";
 import { fetchHRMISUser } from "../../api/hrmisApi";
 
 import UserTable from "../../components/users/UserTable";
@@ -18,12 +18,10 @@ import UserDetailModal from "../../components/users/UserDetailModal";
 import TicketViewModal from "../../components/tickets/TicketViewModal";
 import { HRMISUserModal } from "../../components/users/HRMISUserModal";
 
-// Import types from the actual type files to ensure consistency
 import type { Team as TeamType } from "../../types/team.types";
 import type { Role as RoleType } from "../../types/roles.types";
 
 /* ================= TYPES ================= */
-// Use the imported types for consistency
 type Team = TeamType;
 type Role = RoleType;
 
@@ -35,15 +33,23 @@ type User = {
   first_name?: string;
   last_name?: string;
   role?: any;
+  role_name?: string;
   team?: number | null;
-  team_name?: string;
-  rank?: string;
-  photo?: string;
+  team_name?: string | null;
+  team_names?: string[];  // ✅ Multiple teams support
+  team_ids?: number[];    // ✅ Multiple teams IDs
+  rank?: string | null;
+  photo?: string | null;
+  profile_picture?: string | null;
   is_active?: boolean;
   is_staff?: boolean;
   is_superuser?: boolean;
-  last_login?: string;
+  is_default_password?: boolean;
+  last_login?: string | null;
   date_joined?: string;
+  permissions?: string[];
+  is_team_lead_anywhere?: boolean;
+  is_global_team_lead?: boolean;
 };
 
 type UserTicket = {
@@ -70,13 +76,22 @@ const ITEMS_PER_PAGE = 10;
 /* ================= HELPERS ================= */
 
 const extractList = (res: any) => {
-  return Array.isArray(res?.data)
-    ? res.data
-    : Array.isArray(res?.data?.results)
-    ? res.data.results
-    : Array.isArray(res?.data?.data)
-    ? res.data.data
-    : [];
+  if (Array.isArray(res?.data)) {
+    return res.data;
+  }
+  if (Array.isArray(res?.data?.results)) {
+    return res.data.results;
+  }
+  if (Array.isArray(res?.data?.data)) {
+    return res.data.data;
+  }
+  if (Array.isArray(res?.results)) {
+    return res.results;
+  }
+  if (Array.isArray(res)) {
+    return res;
+  }
+  return [];
 };
 
 const normalizeRole = (role: any) =>
@@ -99,6 +114,7 @@ const Users: React.FC = () => {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [roleFilter, setRoleFilter] = useState("all");
+  const [teamFilter, setTeamFilter] = useState("all");
 
   const [showForm, setShowForm] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -122,7 +138,22 @@ const Users: React.FC = () => {
       setLoading(true);
       setError(null);
       const res = await getUsers();
-      setUsers(extractList(res));
+      const usersData = extractList(res);
+      
+      // ✅ Map users with proper team information
+      const mappedUsers = usersData.map((user: any) => ({
+        ...user,
+        team_names: user.team_names || [],
+        team_ids: user.team_ids || [],
+        team_name: user.team_names?.[0] || user.team_name || null,
+        rank: user.rank || null,
+        photo: user.photo || user.profile_picture || null,
+        profile_picture: user.profile_picture || null,
+        is_default_password: user.is_default_password ?? true,
+        permissions: user.permissions || [],
+      }));
+      
+      setUsers(mappedUsers);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to load users");
     } finally {
@@ -134,7 +165,6 @@ const Users: React.FC = () => {
     try {
       const res = await getTeams();
       const teamsData = extractList(res);
-      // Map the API response to match the Team type
       const mappedTeams: Team[] = teamsData.map((team: any) => ({
         id: team.id,
         name: team.name,
@@ -154,7 +184,6 @@ const Users: React.FC = () => {
     try {
       const res = await getRoles();
       const rolesData = extractList(res);
-      // Map the API response to match the Role type
       const mappedRoles: Role[] = rolesData.map((role: any) => ({
         id: role.id,
         name: role.name,
@@ -172,6 +201,8 @@ const Users: React.FC = () => {
         { id: 1, name: "ADMIN", description: "Administrator", status: "ACTIVE", is_system: true, is_default: false, level: 90, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         { id: 2, name: "MANAGER", description: "Manager", status: "ACTIVE", is_system: true, is_default: false, level: 70, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         { id: 3, name: "AGENT", description: "Support Agent", status: "ACTIVE", is_system: true, is_default: true, level: 50, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 4, name: "TEAM_LEAD", description: "Team Lead", status: "ACTIVE", is_system: true, is_default: false, level: 60, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 5, name: "SUPPORT", description: "Support", status: "ACTIVE", is_system: true, is_default: false, level: 40, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
       ]);
     }
   }, []);
@@ -276,6 +307,7 @@ const Users: React.FC = () => {
   const filteredUsers = useMemo(() => {
     let data = [...users];
 
+    // Search filter
     if (search) {
       const s = search.toLowerCase();
       data = data.filter((u) =>
@@ -291,12 +323,23 @@ const Users: React.FC = () => {
       );
     }
 
+    // Role filter
     if (roleFilter !== "all") {
       data = data.filter((u) => normalizeRole(u.role) === roleFilter);
     }
 
+    // ✅ Team filter - support multiple teams
+    if (teamFilter !== "all") {
+      const teamId = parseInt(teamFilter);
+      data = data.filter((u) => 
+        u.team_names?.includes(teams.find(t => t.id === teamId)?.name || '') ||
+        u.team_ids?.includes(teamId) ||
+        u.team === teamId
+      );
+    }
+
     return data;
-  }, [users, search, roleFilter]);
+  }, [users, search, roleFilter, teamFilter, teams]);
 
   /* ===== PAGINATION ===== */
   const totalPages = Math.max(
@@ -311,7 +354,7 @@ const Users: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [search, roleFilter]);
+  }, [search, roleFilter, teamFilter]);
 
   /* ===== ERROR AUTO CLEAR ===== */
   useEffect(() => {
@@ -352,10 +395,10 @@ const Users: React.FC = () => {
         </div>
       </div>
 
-      {/* SEARCH */}
-      <div className="flex gap-2 mb-4">
+      {/* SEARCH & FILTERS */}
+      <div className="flex flex-wrap gap-2 mb-4">
         <input
-          className="border p-2 flex-1"
+          className="border p-2 flex-1 min-w-[200px]"
           placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -373,11 +416,30 @@ const Users: React.FC = () => {
             </option>
           ))}
         </select>
+
+        {/* ✅ Team Filter - Support multiple teams */}
+        <select
+          className="border p-2"
+          value={teamFilter}
+          onChange={(e) => setTeamFilter(e.target.value)}
+        >
+          <option value="all">All Teams</option>
+          {teams.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* USERS COUNT */}
+      <div className="mb-3 text-sm text-gray-600">
+        Showing {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
       </div>
 
       {/* ERROR */}
       {error && (
-        <div className="bg-red-100 text-red-700 p-2 mb-3">
+        <div className="bg-red-100 text-red-700 p-2 mb-3 rounded">
           {error}
         </div>
       )}
@@ -385,7 +447,10 @@ const Users: React.FC = () => {
       {/* TABLE */}
       <div className="bg-white rounded shadow">
         {loading ? (
-          <p className="p-4">Loading...</p>
+          <div className="p-4 text-center">
+            <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-2 text-gray-500">Loading users...</p>
+          </div>
         ) : (
           <UserTable
             users={paginatedUsers}
@@ -399,6 +464,31 @@ const Users: React.FC = () => {
           />
         )}
       </div>
+
+      {/* PAGINATION */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center mt-4">
+          <p className="text-sm text-gray-600">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage(p => p + 1)}
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MODALS */}
       <UserFormModal

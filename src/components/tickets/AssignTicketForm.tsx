@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { assignTicket } from "../../api/ticketApi";
 import { getUsers, getTeams } from "../../api/userApi";
 import { Toast } from "../common/Toast";
+import { useAuth } from "../../context/AuthContext";
 
 interface AssignTicketFormProps {
   ticket: any;
@@ -31,23 +32,38 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
     type: "success" | "error" | "info" | "warning";
   } | null>(null);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  
+  // ✅ Use AuthContext
+  const { user, permissions: userPermissions, hasPermission } = useAuth();
+
   // =========================
   // PERMISSION CHECKS
   // =========================
-  const userPermissions = user.permissions || [];
+  const canAssignToAgent = hasPermission('assign_ticket_to_agent') || 
+                           hasPermission('assign_ticket_to_support');
   
-  const canAssignToAgent = userPermissions.includes('assign_ticket_to_agent') || 
-                           userPermissions.includes('assign_ticket_to_support');
-  
-  const canAssignToTeam = userPermissions.includes('assign_ticket_to_team');
+  const canAssignToTeam = hasPermission('assign_ticket_to_team');
   const hasAssignPermission = canAssignToAgent || canAssignToTeam;
 
-  // Get user role
-  const userRole = (user.role_name || user.role || "").toUpperCase();
+  // ✅ Get user role - use role field directly
+  const userRole = user?.role || user?.role_name || "";
   const isTeamLead = userRole === "TEAM_LEAD";
   const isAdmin = userRole === "ADMIN";
+
+  // ✅ CRITICAL: Use array fields, NOT single fields
+  const userTeamIds = user?.team_ids || [];
+  const userTeamNames = user?.team_names || [];
+  const userLeadingTeamIds = user?.leading_team_ids || [];
+  const isGlobalTeamLead = user?.is_global_team_lead || false;
+  const isLeadOfAnyTeam = userLeadingTeamIds.length > 0;
+
+  // ✅ Debug log to verify data
+  console.log("🔍 User Data:", user);
+  console.log("🔍 User Role:", userRole);
+  console.log("🔍 Is Team Lead:", isTeamLead);
+  console.log("🔍 Team IDs (array):", userTeamIds);
+  console.log("🔍 Team Names (array):", userTeamNames);
+  console.log("🔍 Leading Team IDs:", userLeadingTeamIds);
+  console.log("🔍 Is Lead Of Any Team:", isLeadOfAnyTeam);
 
   useEffect(() => {
     if (!hasAssignPermission) {
@@ -68,8 +84,6 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
     try {
       const usersRes = await getUsers();
       
-      console.log("Users Response:", usersRes.data);
-
       // Extract users from response
       let usersData: any[] = [];
       
@@ -83,11 +97,12 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
         usersData = [];
       }
 
-      console.log("Users Data:", usersData);
-      console.log("Current User:", user);
-      console.log("User Role:", userRole);
-      console.log("Is Team Lead:", isTeamLead);
-      console.log("User Team ID:", user.team_id);
+      console.log("📊 All Users Data:", usersData);
+      console.log("👤 Current User:", user);
+      console.log("🔑 User Role:", userRole);
+      console.log("📋 User Team IDs (array):", userTeamIds);
+      console.log("📋 User Team Names (array):", userTeamNames);
+      console.log("⭐ Leading Team IDs:", userLeadingTeamIds);
 
       // =========================
       // FILTER AGENTS/SUPPORT BASED ON ROLE
@@ -100,33 +115,57 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           const uRole = (u.role_name || u.role || "").toUpperCase();
           return uRole === "AGENT" || uRole === "SUPPORT";
         });
-        console.log("Admin - All agents/support:", filteredUsers);
+        console.log("👑 Admin - All agents/support:", filteredUsers);
       } 
-      else if (isTeamLead) {
-        // ✅ TEAM LEAD: See only AGENT and SUPPORT users in their team
-        const teamId = user.team_id;
-        const teamName = user.team_name;
+      else if (isTeamLead && isLeadOfAnyTeam) {
+        // ✅ TEAM LEAD: See only AGENT and SUPPORT users in their leading teams
+        const teamIds = userLeadingTeamIds;
+
+        console.log("🔍 Filtering users by leading team IDs:", teamIds);
 
         filteredUsers = usersData.filter((u: any) => {
           const uRole = (u.role_name || u.role || "").toUpperCase();
-          const isInTeam = u.team_id === teamId || u.team_name === teamName;
           const isAssignableRole = uRole === "AGENT" || uRole === "SUPPORT";
           
-          // Also include the team lead themselves if they want to assign to themselves
-          const isSelf = u.id === user.id;
+          // ✅ Use team_ids array from the user data
+          const uTeamIds = u.team_ids || [];
           
-          return isInTeam && (isAssignableRole || isSelf);
+          // ✅ Check if user is in any of the leading teams
+          const isInTeam = teamIds.some((teamId: number) => 
+            uTeamIds.includes(teamId)
+          );
+          
+          // Don't include the team lead themselves
+          const isSelf = u.id === user?.id;
+          
+          // ✅ Detailed debug for each user
+          console.log(`🔍 Checking user ${u.full_name || u.username}:`, {
+            role: uRole,
+            isAssignableRole,
+            uTeamIds,
+            teamIds,
+            isInTeam,
+            isSelf,
+            shouldInclude: isInTeam && isAssignableRole && !isSelf
+          });
+          
+          return isInTeam && isAssignableRole && !isSelf;
         });
         
-        console.log(`Team Lead - Users in team ${teamName || teamId}:`, filteredUsers);
+        console.log(`👥 Team Lead - Users in leading teams:`, filteredUsers);
         
         if (filteredUsers.length === 0) {
-          console.warn("No agents or support staff found in team");
+          console.warn("⚠️ No agents or support staff found in your leading teams");
         }
       } 
+      else if (isTeamLead && !isLeadOfAnyTeam) {
+        // ⚠️ Team Lead but no leading teams
+        console.warn("⚠️ User is a Team Lead but has no leading teams");
+        filteredUsers = [];
+      }
       else {
         // ✅ AGENT/SUPPORT: See only themselves
-        filteredUsers = usersData.filter((u: any) => u.id === user.id);
+        filteredUsers = usersData.filter((u: any) => u.id === user?.id);
       }
 
       // Sort users by name
@@ -151,6 +190,11 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           teamsData = teamsRes.data;
         }
         
+        // ✅ If Team Lead, filter teams to only show their leading teams
+        if (isTeamLead && !isAdmin) {
+          teamsData = teamsData.filter((t: any) => userLeadingTeamIds.includes(t.id));
+        }
+        
         setTeams(teamsData);
       }
 
@@ -159,7 +203,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
         setSelectedAgent(String(filteredUsers[0].id));
       }
     } catch (err: any) {
-      console.error("Load data error:", err);
+      console.error("❌ Load data error:", err);
       setError(err?.response?.data?.message || "Failed to load users");
     } finally {
       setLoadingData(false);
@@ -294,7 +338,6 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
         {/* HEADER */}
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold">Assign Ticket</h3>
@@ -303,18 +346,48 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           </span>
         </div>
 
-        {/* TEAM INFO - Show for Team Lead */}
+        {/* ✅ TEAM INFO - Show for Team Lead */}
         {isTeamLead && (
           <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-            <p className="text-sm text-blue-700 flex items-center gap-2">
-              <span>👥</span>
-              <span>
-                <strong>Your Team:</strong> {user.team_name || 'No team assigned'}
-              </span>
-              <span className="ml-2 text-xs bg-blue-100 px-2 py-0.5 rounded-full">
-                {agents.length} members
-              </span>
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-blue-700 flex items-center gap-2">
+                <span>👥</span>
+                <span>
+                  <strong>Your Teams:</strong> 
+                  {userTeamNames.length > 0 
+                    ? userTeamNames.join(', ') 
+                    : 'No teams assigned'}
+                </span>
+                <span className="ml-2 text-xs bg-blue-100 px-2 py-0.5 rounded-full">
+                  {agents.length} members
+                </span>
+              </p>
+              {isGlobalTeamLead && (
+                <p className="text-xs text-purple-600 flex items-center gap-1">
+                  <span>⭐</span>
+                  <span>
+                    <strong>Global Team Lead:</strong> You can manage all teams you belong to
+                  </span>
+                </p>
+              )}
+              {isLeadOfAnyTeam && (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <span>🔑</span>
+                  <span>
+                    <strong>Leading:</strong> {userLeadingTeamIds.map((id: number) => {
+                      const teamName = userTeamNames[userTeamIds.indexOf(id)] || `Team ${id}`;
+                      return teamName;
+                    }).join(', ')}
+                  </span>
+                </p>
+              )}
+              {userTeamNames.length === 0 && (
+                <p className="text-xs text-red-500">
+                  ⚠️ You have the TEAM_LEAD role but are not assigned to any team. 
+                  Please contact an administrator.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -347,9 +420,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           </div>
         )}
 
-        {/* =========================
-            ASSIGNMENT TYPE SELECTOR
-        ========================= */}
+        {/* ASSIGNMENT TYPE SELECTOR */}
         {canAssignToAgent && canAssignToTeam && (
           <div className="flex gap-6 p-4 bg-gray-50 border rounded-xl">
             {canAssignToAgent && (
@@ -376,9 +447,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           </div>
         )}
 
-        {/* =========================
-            AGENT SELECT
-        ========================= */}
+        {/* AGENT SELECT */}
         {assignType === "agent" && canAssignToAgent && (
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -390,28 +459,44 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
               className="w-full border rounded-lg px-3 py-2"
             >
               <option value="">Select {isTeamLead ? 'team member' : 'agent'}</option>
-              {agents.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name || u.username} 
-                  {u.role_name ? ` (${u.role_name})` : ''}
-                  {u.team_name ? ` - ${u.team_name}` : ''}
-                  {u.id === user.id ? " (You)" : ""}
-                </option>
-              ))}
+              {agents.map((u) => {
+                const uRole = (u.role_name || u.role || "").toUpperCase();
+                const uTeamNames = u.team_names || [];
+                const isCurrentUser = u.id === user?.id;
+                
+                return (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name || u.username} 
+                    {uRole ? ` (${uRole})` : ''}
+                    {uTeamNames.length > 0 ? ` - ${uTeamNames.join(', ')}` : ''}
+                    {isCurrentUser ? " (You)" : ""}
+                  </option>
+                );
+              })}
             </select>
-            {agents.length === 0 && (
+            {agents.length === 0 && isTeamLead && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded">
+                <p className="text-red-600 text-sm font-medium">
+                  No agents or support staff found in your leading teams
+                </p>
+                <p className="text-xs text-red-500 mt-1">
+                  Leading Team IDs: {userLeadingTeamIds.length > 0 ? userLeadingTeamIds.join(', ') : 'Not set'} | 
+                  Your Team Names: {userTeamNames.length > 0 ? userTeamNames.join(', ') : 'Not set'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Please contact admin to add team members or check your team assignment.
+                </p>
+              </div>
+            )}
+            {agents.length === 0 && !isTeamLead && (
               <p className="text-red-500 text-sm mt-2">
-                {isTeamLead 
-                  ? 'No agents or support staff found in your team'
-                  : 'No agents available for assignment'}
+                No agents available for assignment
               </p>
             )}
           </div>
         )}
 
-        {/* =========================
-            TEAM SELECT
-        ========================= */}
+        {/* TEAM SELECT */}
         {assignType === "team" && canAssignToTeam && (
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -452,9 +537,7 @@ const AssignTicketForm: React.FC<AssignTicketFormProps> = ({
           )}
         </div>
 
-        {/* =========================
-            ACTION BUTTONS
-        ========================= */}
+        {/* ACTION BUTTONS */}
         <div className="flex justify-end gap-3 pt-3 border-t">
           {onClose && (
             <button

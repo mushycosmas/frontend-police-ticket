@@ -41,6 +41,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
   const userData = userDataRef.current;
   const hasLoadedRef = useRef(false);
 
+  // ✅ FIX: Use role_name to detect role (not numeric role)
   const getUserRole = useCallback((user: any): string => {
     if (!user) return "";
     if (user.role_name) return user.role_name.toUpperCase();
@@ -50,20 +51,50 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
     return "";
   }, []);
 
-  const getUserTeamId = useCallback((user: any): number | null => {
-    if (!user) return null;
+  // ✅ FIX: Get team IDs from array
+  const getUserTeamIds = useCallback((user: any): number[] => {
+    if (!user) return [];
+    // Use team_ids array from new structure
+    if (user.team_ids && Array.isArray(user.team_ids)) {
+      return user.team_ids.map((id: any) => Number(id)).filter(Boolean);
+    }
+    // Fallback to single team_id
     const teamId = user.team_id || user.team || user.teamId || null;
-    return teamId ? Number(teamId) : null;
+    return teamId ? [Number(teamId)] : [];
   }, []);
 
-  const getUserTeamName = useCallback((user: any): string | null => {
-    if (!user) return null;
-    return user.team_name || user.teamName || null;
+  // ✅ FIX: Get team names from array
+  const getUserTeamNames = useCallback((user: any): string[] => {
+    if (!user) return [];
+    if (user.team_names && Array.isArray(user.team_names)) {
+      return user.team_names;
+    }
+    // Fallback to single team_name
+    return user.team_name ? [user.team_name] : [];
+  }, []);
+
+  // ✅ FIX: Get leading team IDs (teams where user is a lead)
+  const getUserLeadingTeamIds = useCallback((user: any): number[] => {
+    if (!user) return [];
+    if (user.leading_team_ids && Array.isArray(user.leading_team_ids)) {
+      return user.leading_team_ids.map((id: any) => Number(id)).filter(Boolean);
+    }
+    return [];
   }, []);
 
   const userRole = getUserRole(userData);
-  const userTeamId = getUserTeamId(userData);
-  const userTeamName = getUserTeamName(userData);
+  const userTeamIds = getUserTeamIds(userData);
+  const userTeamNames = getUserTeamNames(userData);
+  const userLeadingTeamIds = getUserLeadingTeamIds(userData);
+
+  // ✅ Debug log
+  console.log("🔍 CreateTicketModal - User Data:", {
+    userRole,
+    userTeamIds,
+    userTeamNames,
+    userLeadingTeamIds,
+    userData
+  });
 
   const [loading, setLoading] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -152,50 +183,52 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
         
         const getUserTeamIdFromUser = (u: any) => u.team_id || u.team || u.teamId || null;
         const getUserTeamNameFromUser = (u: any) => u.team_name || u.teamName || null;
+        const getUserTeamIdsFromUser = (u: any) => u.team_ids || [];
 
         console.log("🔍 CreateTicketModal - User Data:", {
           userRole,
-          userTeamId,
-          userTeamName,
+          userTeamIds,
+          userTeamNames,
+          userLeadingTeamIds,
           userData
         });
 
+        // ✅ FIX: Use leading_team_ids for TEAM_LEAD
         if (userRole === "TEAM_LEAD") {
-          // ✅ More robust filtering - check by team_id OR team_name
+          const leadingTeamIds = userLeadingTeamIds;
+          
+          // Filter users in the same teams (using team_ids array)
           const filtered = allUsers.filter(u => {
             const uRole = getUserRole(u);
-            const uTeamId = getUserTeamIdFromUser(u);
-            const uTeamName = getUserTeamNameFromUser(u);
             const isSelf = u.id === userData.id;
             
             // Check if user is AGENT or SUPPORT
             const isAssignableRole = ["AGENT", "SUPPORT"].includes(uRole);
             
-            // Check if same team (by ID or name)
-            const isSameTeam = 
-              (userTeamId && uTeamId && Number(uTeamId) === Number(userTeamId)) ||
-              (userTeamName && uTeamName && uTeamName.toLowerCase() === userTeamName.toLowerCase());
+            // Check if user is in any of the leading teams (using team_ids array)
+            const uTeamIds = getUserTeamIdsFromUser(u);
+            const isInTeam = leadingTeamIds.some((teamId: number) => 
+              uTeamIds.includes(teamId)
+            );
             
             // Log for debugging
             console.log(`🔍 Checking user: ${u.full_name || u.username}`, {
               role: uRole,
               isAssignableRole,
-              userTeamId,
-              uTeamId,
-              userTeamName,
-              uTeamName,
-              isSameTeam,
+              leadingTeamIds,
+              uTeamIds,
+              isInTeam,
               isSelf
             });
             
-            return isAssignableRole && isSameTeam && !isSelf;
+            return isAssignableRole && isInTeam && !isSelf;
           });
           
           setAgents(filtered);
           
-          // Auto-select team
-          if (userTeamId) {
-            setFormData(prev => ({ ...prev, team: String(userTeamId) }));
+          // Auto-select first team
+          if (userTeamIds.length > 0) {
+            setFormData(prev => ({ ...prev, team: String(userTeamIds[0]) }));
           }
           
           // Auto-select first agent if available
@@ -205,16 +238,17 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
           
           if (filtered.length === 0) {
             console.warn("⚠️ No agents found for team lead", {
-              userTeamId,
-              userTeamName,
+              userTeamIds,
+              userTeamNames,
+              userLeadingTeamIds,
               allUsers: allUsers.map(u => ({
                 name: u.full_name || u.username,
                 role: getUserRole(u),
-                team_id: getUserTeamIdFromUser(u),
+                team_ids: getUserTeamIdsFromUser(u),
                 team_name: getUserTeamNameFromUser(u)
               }))
             });
-            showToast("No agents or support staff found in your team", "warning");
+            showToast("No agents or support staff found in your teams", "warning");
           }
         } else if (userRole === "AGENT" || userRole === "SUPPORT") {
           const current = allUsers.filter(u => u.id === userData.id);
@@ -222,11 +256,11 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
           if (current.length) {
             setFormData(prev => ({ ...prev, assigned_to: String(current[0].id) }));
           }
-          if (userTeamId) {
-            setFormData(prev => ({ ...prev, team: String(userTeamId) }));
+          if (userTeamIds.length > 0) {
+            setFormData(prev => ({ ...prev, team: String(userTeamIds[0]) }));
           }
         } else if (userRole === "ADMIN") {
-          // ✅ Admin can assign to AGENT and SUPPORT (not TEAM_LEAD)
+          // Admin can assign to AGENT and SUPPORT (not TEAM_LEAD)
           setAgents(allUsers.filter(isAssignable));
         } else {
           setAgents([]);
@@ -238,7 +272,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
       }
     };
     loadTeamsAndAgents();
-  }, [show, userRole, userTeamId, userTeamName, userData, showToast]);
+  }, [show, userRole, userTeamIds, userTeamNames, userLeadingTeamIds, userData, showToast]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -248,8 +282,9 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
   );
 
   const handleSubmit = useCallback(async () => {
+    // ✅ Validation: Phone is now MANDATORY, Email is OPTIONAL
     if (!formData.customer_name) return showToast("Customer name is required", "error");
-    if (!formData.customer_email) return showToast("Customer email is required", "error");
+    if (!formData.customer_phone) return showToast("Customer phone number is required", "error");
     if (!formData.title) return showToast("Title is required", "error");
     if (!formData.channel_id) return showToast("Please select a channel", "error");
 
@@ -260,8 +295,8 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
       priority: formData.priority,
       channel: formData.channel_id as TicketChannel,
       customer_name: formData.customer_name,
-      customer_email: formData.customer_email,
-      customer_phone: formData.customer_phone || "Not Provided",
+      customer_phone: formData.customer_phone, // Phone is now required
+      customer_email: formData.customer_email || undefined, // Email is optional
       customer_nida: formData.customer_nida || undefined,
       customer_gender: formData.customer_gender || undefined,
       category: formData.category_id ? parseInt(formData.category_id) : undefined,
@@ -295,17 +330,16 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
       }
       payload.assigned_to = parseInt(formData.assigned_to);
       
-      const teamId = getUserTeamIdFromData();
-      if (teamId) {
-        payload.team = teamId;
+      // Use first team ID from user's teams
+      if (userTeamIds.length > 0) {
+        payload.team = userTeamIds[0];
       }
       
     } else if (hasRole("AGENT") || hasRole("SUPPORT")) {
       payload.assigned_to = userData.id;
       
-      const teamId = getUserTeamIdFromData();
-      if (teamId) {
-        payload.team = teamId;
+      if (userTeamIds.length > 0) {
+        payload.team = userTeamIds[0];
       }
     }
 
@@ -322,7 +356,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
     } finally {
       setLoading(false);
     }
-  }, [formData, mode, userData, showToast, onSuccess, onHide]);
+  }, [formData, mode, userData, userTeamIds, showToast, onSuccess, onHide]);
 
   const getUserDisplayName = useCallback((user: User) => {
     return user.full_name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || user.email;
@@ -335,6 +369,9 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
 
   if (!show) return null;
 
+  // Get display team names
+  const displayTeamNames = userTeamNames.length > 0 ? userTeamNames.join(', ') : "Not set";
+
   return (
     <>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -345,7 +382,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             <button onClick={onHide} className="text-gray-500 hover:text-black">✕</button>
           </div>
 
-          {/* ✅ TWO COLUMN GRID */}
+          {/* TWO COLUMN GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             {/* LEFT COLUMN - Customer Information */}
@@ -354,31 +391,62 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
               
               <div>
                 <label className="block text-sm font-medium mb-1">Customer Name *</label>
-                <input name="customer_name" value={formData.customer_name} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+                <input 
+                  name="customer_name" 
+                  value={formData.customer_name} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm" 
+                  required
+                />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1">Customer Email *</label>
-                <input name="customer_email" type="email" value={formData.customer_email} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+                <label className="block text-sm font-medium mb-1">Customer Phone *</label>
+                <input 
+                  name="customer_phone" 
+                  placeholder="+255..." 
+                  value={formData.customer_phone} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm" 
+                  required
+                />
+                <p className="text-xs text-red-500 mt-1">Phone number is required</p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1">Customer Phone (Optional)</label>
-                <input name="customer_phone" placeholder="+255..." value={formData.customer_phone} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+                <label className="block text-sm font-medium mb-1">Customer Email (Optional)</label>
+                <input 
+                  name="customer_email" 
+                  type="email" 
+                  placeholder="customer@example.com" 
+                  value={formData.customer_email} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm" 
+                />
+                <p className="text-xs text-gray-400 mt-1">Email is optional</p>
               </div>
               
               <div>
                 <label className="block text-sm font-medium mb-1">NIDA Number (Optional)</label>
-                <input name="customer_nida" value={formData.customer_nida} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+                <input 
+                  name="customer_nida" 
+                  value={formData.customer_nida} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm" 
+                />
               </div>
               
               <div>
                 <label className="block text-sm font-medium mb-1">Gender (Optional)</label>
-                <select name="customer_gender" value={formData.customer_gender} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                <select 
+                  name="customer_gender" 
+                  value={formData.customer_gender} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm"
+                >
                   <option value="">-- Select gender --</option>
                   <option value="M">Male</option>
                   <option value="F">Female</option>
-                
                 </select>
               </div>
             </div>
@@ -389,7 +457,12 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
               
               <div>
                 <label className="block text-sm font-medium mb-1">Channel *</label>
-                <select name="channel_id" value={formData.channel_id} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                <select 
+                  name="channel_id" 
+                  value={formData.channel_id} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm"
+                >
                   <option value="">-- Select channel --</option>
                   {channels.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}
                 </select>
@@ -398,7 +471,12 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
               
               <div>
                 <label className="block text-sm font-medium mb-1">Category (Optional)</label>
-                <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                <select 
+                  name="category_id" 
+                  value={formData.category_id} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm"
+                >
                   <option value="">-- No category --</option>
                   {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                 </select>
@@ -407,12 +485,23 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
               
               <div>
                 <label className="block text-sm font-medium mb-1">Title *</label>
-                <input name="title" value={formData.title} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+                <input 
+                  name="title" 
+                  value={formData.title} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm" 
+                  required
+                />
               </div>
               
               <div>
                 <label className="block text-sm font-medium mb-1">Priority</label>
-                <select name="priority" value={formData.priority} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                <select 
+                  name="priority" 
+                  value={formData.priority} 
+                  onChange={handleChange} 
+                  className="w-full border rounded px-3 py-2 text-sm"
+                >
                   <option value="LOW">🟢 Low</option>
                   <option value="MEDIUM">🟡 Medium</option>
                   <option value="HIGH">🟠 High</option>
@@ -424,7 +513,13 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             {/* DESCRIPTION - Full Width */}
             <div className="col-span-1 md:col-span-2">
               <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea name="description" rows={3} value={formData.description} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm" />
+              <textarea 
+                name="description" 
+                rows={3} 
+                value={formData.description} 
+                onChange={handleChange} 
+                className="w-full border rounded px-3 py-2 text-sm" 
+              />
             </div>
 
             {/* ASSIGNMENT - Full Width */}
@@ -436,7 +531,11 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                 {hasRoleForRender("ADMIN") && (
                   <div>
                     <label className="block text-sm font-medium mb-1">Assignment Type</label>
-                    <select className="w-full border rounded px-3 py-2 text-sm" value={mode} onChange={e => setMode(e.target.value as "agent" | "team")}>
+                    <select 
+                      className="w-full border rounded px-3 py-2 text-sm" 
+                      value={mode} 
+                      onChange={e => setMode(e.target.value as "agent" | "team")}
+                    >
                       <option value="agent">👤 Assign to Agent</option>
                       <option value="team">👥 Assign to Team</option>
                     </select>
@@ -448,28 +547,33 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                   <div>
                     <div className="bg-purple-50 p-2 rounded mb-3">
                       <p className="text-sm text-purple-700">
-                        📋 Your Team: {userTeamName || userTeamId || "Not set"}
+                        📋 Your Teams: {displayTeamNames}
                       </p>
                     </div>
                     
                     <label className="block text-sm font-medium mb-1">Select Agent from Your Team</label>
-                    <select name="assigned_to" value={formData.assigned_to} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                    <select 
+                      name="assigned_to" 
+                      value={formData.assigned_to} 
+                      onChange={handleChange} 
+                      className="w-full border rounded px-3 py-2 text-sm"
+                    >
                       <option value="">-- Select agent --</option>
                       {agents.map(a => (
                         <option key={a.id} value={a.id}>
                           {getUserDisplayName(a)} {a.role_name && `(${a.role_name})`}
-                          {a.team_name && ` - ${a.team_name}`}
+                          {a.team_names && a.team_names.length > 0 && ` - ${a.team_names.join(', ')}`}
                         </option>
                       ))}
                     </select>
                     {agents.length === 0 && (
                       <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded">
                         <p className="text-red-600 text-sm font-medium">
-                          No agents or support staff found in your team
+                          No agents or support staff found in your teams
                         </p>
                         <p className="text-xs text-red-500 mt-1">
-                          Team ID: {userTeamId || "Not set"} | 
-                          Team Name: {userTeamName || "Not set"}
+                          Team IDs: {userTeamIds.join(', ') || "Not set"} | 
+                          Team Names: {userTeamNames.join(', ') || "Not set"}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           Please contact admin to add team members or check your team assignment.
@@ -486,11 +590,17 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                 {hasRoleForRender("ADMIN") && mode === "agent" && (
                   <div>
                     <label className="block text-sm font-medium mb-1">Select Agent</label>
-                    <select name="assigned_to" value={formData.assigned_to} onChange={handleChange} className="w-full border rounded px-3 py-2 text-sm">
+                    <select 
+                      name="assigned_to" 
+                      value={formData.assigned_to} 
+                      onChange={handleChange} 
+                      className="w-full border rounded px-3 py-2 text-sm"
+                    >
                       <option value="">-- Select agent --</option>
                       {agents.map(a => (
                         <option key={a.id} value={a.id}>
                           {getUserDisplayName(a)} {a.role_name && `(${a.role_name})`}
+                          {a.team_names && a.team_names.length > 0 && ` - ${a.team_names.join(', ')}`}
                         </option>
                       ))}
                     </select>
@@ -527,6 +637,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                           {agents.map(a => (
                             <option key={a.id} value={a.id}>
                               {getUserDisplayName(a)} {a.role_name && `(${a.role_name})`}
+                              {a.team_names && a.team_names.length > 0 && ` - ${a.team_names.join(', ')}`}
                             </option>
                           ))}
                         </select>
