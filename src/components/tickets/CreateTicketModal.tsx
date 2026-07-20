@@ -1,4 +1,3 @@
-// src/components/modals/CreateTicketModal.tsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { createTicket } from "../../api/ticketApi";
 import { getTeams } from "../../api/teamApi";
@@ -36,10 +35,67 @@ interface FormData {
   assigned_to: string;
 }
 
+// ============================================================
+// PHONE NUMBER VALIDATION
+// ============================================================
+const validatePhoneNumber = (phone: string): { valid: boolean; message: string; formatted: string } => {
+  // Remove any non-digit characters (spaces, dashes, plus, parentheses, etc.)
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Check if empty
+  if (!cleaned) {
+    return { valid: false, message: 'Phone number is required', formatted: '' };
+  }
+  
+  // Check if it starts with 255
+  if (!cleaned.startsWith('255')) {
+    return { 
+      valid: false, 
+      message: 'Phone number must start with 255 (Tanzania country code)', 
+      formatted: cleaned 
+    };
+  }
+  
+  // Check total length (must be at least 11 digits)
+  if (cleaned.length < 11) {
+    return { 
+      valid: false, 
+      message: `Phone number must be at least 11 digits (current: ${cleaned.length})`, 
+      formatted: cleaned 
+    };
+  }
+  
+  // Check if length is more than 12 (max for Tanzania)
+  if (cleaned.length > 12) {
+    return { 
+      valid: false, 
+      message: `Phone number too long (max 12 digits, current: ${cleaned.length})`, 
+      formatted: cleaned 
+    };
+  }
+  
+  // Valid - 255 + 9 digits (11 total) or 255 + 9 digits (12 total)
+  return { valid: true, message: 'Valid phone number', formatted: cleaned };
+};
+
+// Format phone number for display (add + prefix)
+const formatPhoneDisplay = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('255') && cleaned.length >= 11) {
+    return `+${cleaned}`;
+  }
+  return phone;
+};
+
+// ============================================================
+
 const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
   const userDataRef = useRef(JSON.parse(localStorage.getItem("user") || "{}"));
   const userData = userDataRef.current;
   const hasLoadedRef = useRef(false);
+
+  // Phone validation state
+  const [phoneError, setPhoneError] = useState<string>("");
 
   // ✅ FIX: Use role_name to detect role (not numeric role)
   const getUserRole = useCallback((user: any): string => {
@@ -142,6 +198,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
         team: "",
         assigned_to: "",
       });
+      setPhoneError("");
       setMode("agent");
       hasLoadedRef.current = false;
     }
@@ -153,6 +210,22 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
       setFormData(prev => ({ ...prev, channel_id: String(channels[0].id) }));
     }
   }, [channels, formData.channel_id]);
+
+  // Phone number validation on change
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    
+    // Update form data with raw value
+    setFormData(prev => ({ ...prev, customer_phone: rawValue }));
+    
+    // Validate phone number
+    const validation = validatePhoneNumber(rawValue);
+    if (!validation.valid && rawValue.length > 0) {
+      setPhoneError(validation.message);
+    } else {
+      setPhoneError("");
+    }
+  }, []);
 
   // Load teams and agents only once
   useEffect(() => {
@@ -284,18 +357,30 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
   const handleSubmit = useCallback(async () => {
     // ✅ Validation: Phone is now MANDATORY, Email is OPTIONAL
     if (!formData.customer_name) return showToast("Customer name is required", "error");
+    
+    // ✅ Phone validation with 255 prefix and 11+ digits
     if (!formData.customer_phone) return showToast("Customer phone number is required", "error");
+    
+    const phoneValidation = validatePhoneNumber(formData.customer_phone);
+    if (!phoneValidation.valid) {
+      return showToast(`Invalid phone number: ${phoneValidation.message}`, "error");
+    }
+    
     if (!formData.title) return showToast("Title is required", "error");
     if (!formData.channel_id) return showToast("Please select a channel", "error");
 
     setLoading(true);
+    
+    // Use the formatted phone number (cleaned, starts with 255)
+    const formattedPhone = phoneValidation.formatted;
+    
     const payload: CreateTicketData = {
       title: formData.title,
       description: formData.description,
       priority: formData.priority,
       channel: formData.channel_id as TicketChannel,
       customer_name: formData.customer_name,
-      customer_phone: formData.customer_phone, // Phone is now required
+      customer_phone: formattedPhone, // Phone is now required and formatted
       customer_email: formData.customer_email || undefined, // Email is optional
       customer_nida: formData.customer_nida || undefined,
       customer_gender: formData.customer_gender || undefined,
@@ -404,13 +489,23 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
                 <label className="block text-sm font-medium mb-1">Customer Phone *</label>
                 <input 
                   name="customer_phone" 
-                  placeholder="+255..." 
+                  placeholder="255XXXXXXXXX (e.g. 255659703509)" 
                   value={formData.customer_phone} 
-                  onChange={handleChange} 
-                  className="w-full border rounded px-3 py-2 text-sm" 
+                  onChange={handlePhoneChange} 
+                  className={`w-full border rounded px-3 py-2 text-sm ${phoneError ? 'border-red-500' : ''}`} 
                   required
                 />
-                <p className="text-xs text-red-500 mt-1">Phone number is required</p>
+                {phoneError && (
+                  <p className="text-xs text-red-500 mt-1">{phoneError}</p>
+                )}
+                <p className="text-xs text-gray-400 mt-1">
+                  Must start with 255 and be at least 11 digits (e.g., 255659703509)
+                </p>
+                {formData.customer_phone && !phoneError && formData.customer_phone.length > 0 && (
+                  <p className="text-xs text-green-500 mt-1">
+                    ✅ Valid: {formatPhoneDisplay(formData.customer_phone)}
+                  </p>
+                )}
               </div>
               
               <div>
@@ -669,7 +764,7 @@ const CreateTicketModal: React.FC<Props> = ({ show, onHide, onSuccess }) => {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || (hasRoleForRender("TEAM_LEAD") && !formData.assigned_to)}
+              disabled={loading || (hasRoleForRender("TEAM_LEAD") && !formData.assigned_to) || !!phoneError}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
             >
               {loading ? "Creating..." : "Create Ticket"}
