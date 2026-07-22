@@ -1,4 +1,3 @@
-// src/context/AuthContext.tsx
 import React, {
   createContext,
   useContext,
@@ -16,6 +15,7 @@ interface User {
   id: number;
   username: string;
   email: string;
+  phone?: string | null;
   first_name?: string;
   last_name?: string;
   full_name?: string;
@@ -41,6 +41,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   needsPasswordChange: boolean;
+  needsPhoneUpdate: boolean; // ✅ ADDED
   login: (credentials: {
     username: string;
     password: string;
@@ -55,6 +56,8 @@ interface AuthContextType {
   hasAnyPermission: (permissions: string[]) => boolean;
   refreshAuthToken: () => Promise<boolean>;
   setNeedsPasswordChange: (value: boolean) => void;
+  setNeedsPhoneUpdate: (value: boolean) => void; // ✅ ADDED
+  refreshUser: () => Promise<void>; // ✅ ADDED
 }
 
 /* =========================
@@ -92,6 +95,12 @@ const safeParseUser = (data: string | null): User | null => {
   }
 };
 
+// ✅ ADDED: Check if phone needs update
+const shouldUpdatePhone = (user: User | null): boolean => {
+  if (!user) return false;
+  return !user.phone || user.phone === "" || user.phone === null;
+};
+
 /* =========================
    INITIAL STATE
 ========================= */
@@ -99,6 +108,7 @@ const initialToken = localStorage.getItem("token");
 const initialUser = safeParseUser(localStorage.getItem("user"));
 const initialPermissions = initialUser?.permissions || [];
 const initialNeedsPasswordChange = initialUser?.needs_password_change || false;
+const initialNeedsPhoneUpdate = shouldUpdatePhone(initialUser); // ✅ ADDED
 
 /* =========================
    PROVIDER
@@ -110,6 +120,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [needsPasswordChange, setNeedsPasswordChange] = useState<boolean>(
     initialNeedsPasswordChange
+  );
+  const [needsPhoneUpdate, setNeedsPhoneUpdate] = useState<boolean>( // ✅ ADDED
+    initialNeedsPhoneUpdate
   );
 
   // =========================
@@ -188,6 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(safeUser);
       setPermissions(safeUser.permissions);
       setNeedsPasswordChange(safeUser.needs_password_change || false);
+      setNeedsPhoneUpdate(shouldUpdatePhone(safeUser)); // ✅ ADDED
 
       return safeUser;
     } finally {
@@ -236,6 +250,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setPermissions([]);
     setNeedsPasswordChange(false);
+    setNeedsPhoneUpdate(false); // ✅ ADDED
   }, []);
 
   // =========================
@@ -272,6 +287,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   // =========================
+  // SET NEEDS PHONE UPDATE ✅ ADDED
+  // =========================
+  const setNeedsPhoneUpdateLocal = useCallback((value: boolean) => {
+    setNeedsPhoneUpdate(value);
+  }, []);
+
+  // =========================
+  // REFRESH USER ✅ ADDED
+  // =========================
+  const refreshUser = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const userData = safeParseUser(localStorage.getItem("user"));
+      if (userData) {
+        setUser(userData);
+        setPermissions(userData.permissions);
+        setNeedsPhoneUpdate(shouldUpdatePhone(userData));
+      }
+    } catch (error) {
+      console.error("Error refreshing user:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // =========================
   // CONTEXT VALUE
   // =========================
   return (
@@ -283,6 +324,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!token && !!user,
         isLoading,
         needsPasswordChange,
+        needsPhoneUpdate, // ✅ ADDED
         login,
         logout,
         changePassword,
@@ -290,6 +332,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         hasAnyPermission,
         refreshAuthToken,
         setNeedsPasswordChange: setNeedsPasswordChangeLocal,
+        setNeedsPhoneUpdate: setNeedsPhoneUpdateLocal, // ✅ ADDED
+        refreshUser, // ✅ ADDED
       }}
     >
       {children}

@@ -13,6 +13,7 @@ import ProtectedRoute from "./ProtectedRoute";
 
 /* Pages */
 import { Login } from "../pages/Login";
+import {UpdatePhone} from "../pages/UpdatePhone";
 import { Home } from "../pages/Home/Home";
 import { PublicCreateTicket } from "../pages/PublicCreateTicket";
 
@@ -74,6 +75,10 @@ const router = createBrowserRouter([
       },
     ],
   },
+  {
+  path: "/update-phone",
+  element: <UpdatePhone />,
+},
   {
     path: "/report",
     element: <PublicCreateTicket />,

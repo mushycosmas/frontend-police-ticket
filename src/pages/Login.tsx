@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/common/Button";
 import { Input } from "../components/common/Input";
+import { isValidTanzaniaPhone } from "../utils/phoneUtils";
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -16,58 +17,82 @@ export const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
 
-    setError("");
-    setLoading(true);
+  setError("");
+  setLoading(true);
 
-    try {
-      const userData = await login(form);
-      console.log("LOGIN SUCCESS:", userData);
-      console.log("User permissions:", userData?.permissions);
-      console.log("Permissions count:", userData?.permissions?.length);
+  try {
+    const userData = await login(form);
 
-      const permissions: string[] = userData?.permissions ?? [];
+    console.log("LOGIN SUCCESS:", userData);
 
-      const hasTicketPermission = permissions.some(p => 
-        p.includes('view_ticket') || p === '*'
-      );
-      const hasUserPermission = permissions.some(p => 
-        p.includes('view_user') || p === '*'
-      );
-      const hasReportPermission = permissions.some(p => 
-        p.includes('view_kpireport') || p.includes('view_report') || p === '*'
-      );
-      const hasDashboardPermission = permissions.some(p => 
-        p.includes('view_dashboard') || p === '*'
-      );
+    // Check phone number before allowing the user to continue
+   console.log("PHONE:", userData?.phone);
+console.log(
+  "PHONE VALID:",
+  isValidTanzaniaPhone(userData?.phone)
+);
 
-      if (hasTicketPermission) {
-        navigate("/tickets", { replace: true });
-      } else if (hasUserPermission) {
-        navigate("/admin/users", { replace: true });
-      } else if (hasReportPermission) {
-        navigate("/reports", { replace: true });
-      } else if (hasDashboardPermission) {
-        navigate("/dashboard", { replace: true });
-      } else {
-        navigate("/dashboard", { replace: true });
-      }
-      
-    } catch (err: any) {
-      console.error("LOGIN ERROR:", err);
-      if (err.response?.status === 401) {
-        setError("Invalid username or password");
-      } else if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError("Login failed. Please check your credentials and try again.");
-      }
-    } finally {
-      setLoading(false);
+if (!isValidTanzaniaPhone(userData?.phone)) {
+  console.log("❌ PHONE MISSING/INVALID - REDIRECTING");
+
+  navigate("/update-phone", {
+    replace: true,
+  });
+
+  return;
+}
+
+console.log("✅ PHONE VALID - CONTINUING");
+
+    const permissions: string[] = userData?.permissions ?? [];
+
+    const hasTicketPermission = permissions.some(
+      (p) => p.includes("view_ticket") || p === "*"
+    );
+
+    const hasUserPermission = permissions.some(
+      (p) => p.includes("view_user") || p === "*"
+    );
+
+    const hasReportPermission = permissions.some(
+      (p) =>
+        p.includes("view_kpireport") ||
+        p.includes("view_report") ||
+        p === "*"
+    );
+
+    const hasDashboardPermission = permissions.some(
+      (p) => p.includes("view_dashboard") || p === "*"
+    );
+
+    if (hasTicketPermission) {
+      navigate("/tickets", { replace: true });
+    } else if (hasUserPermission) {
+      navigate("/admin/users", { replace: true });
+    } else if (hasReportPermission) {
+      navigate("/reports", { replace: true });
+    } else if (hasDashboardPermission) {
+      navigate("/dashboard", { replace: true });
+    } else {
+      navigate("/dashboard", { replace: true });
     }
-  };
+  } catch (err: any) {
+    console.error("LOGIN ERROR:", err);
+
+    if (err.response?.status === 401) {
+      setError("Invalid username or password");
+    } else if (err.response?.data?.detail) {
+      setError(err.response.data.detail);
+    } else {
+      setError("Login failed. Please check your credentials and try again.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-200px)] p-4">

@@ -65,3 +65,6 @@ export const getUserPermissions = (userId: number) =>
 
 export const getCurrentUserPermissions = () => 
     api.get('/api/users/users/me/permissions/');
+
+export const updatePhone = (phone: string) => 
+    api.patch("/auth/users/update-phone/", { phone });
