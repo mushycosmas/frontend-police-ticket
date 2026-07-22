@@ -61,3 +61,5 @@ coverage/
 # Misc
 # =========================
 *.log
+src/api/axios.js
+src/api/publicApi.js
