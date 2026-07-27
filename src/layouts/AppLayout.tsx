@@ -44,6 +44,9 @@ const AppLayout: React.FC = () => {
 
   const publicRoutes = ["/", "/login", "/faqs", "/report"];
   const isPublicRoute = publicRoutes.includes(location.pathname);
+  
+  // Check if user is logged in
+  const isLoggedIn = !!token;
 
   // Redirect to login if no token and not on public route
   if (!token && !isPublicRoute) {
@@ -58,7 +61,8 @@ const AppLayout: React.FC = () => {
         <main className="flex-1 overflow-auto">
           <Outlet />
         </main>
-        <Footer />
+        {/* Hide footer on public routes if logged in */}
+        {!isLoggedIn && <Footer />}
       </div>
     );
   }
@@ -114,7 +118,8 @@ const AppLayout: React.FC = () => {
         </main>
       </div>
 
-      <Footer />
+      {/* Hide footer when logged in */}
+      {!isLoggedIn && <Footer />}
     </div>
   );
 };
