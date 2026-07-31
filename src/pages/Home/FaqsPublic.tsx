@@ -1,4 +1,3 @@
-// pages/public/FaqsPublic.tsx
 
 import React, { useEffect, useState, useCallback } from "react";
 import { incrementFAQView, getFAQs } from "../../api/faqApi";
