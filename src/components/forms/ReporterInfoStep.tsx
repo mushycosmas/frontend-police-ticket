@@ -4,8 +4,6 @@ import { Input } from '../common/Input';
 import {
   getRegions,
   getDistricts,
-  getWards,
-  getStreets,
 } from '../../api/locationApi';
 
 interface Option {
@@ -76,8 +74,6 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
 }) => {
   const [regions, setRegions] = useState<Option[]>([]);
   const [districts, setDistricts] = useState<Option[]>([]);
-  const [wards, setWards] = useState<Option[]>([]);
-  const [streets, setStreets] = useState<Option[]>([]);
   
   // Phone validation state
   const [phoneError, setPhoneError] = useState<string>("");
@@ -93,8 +89,6 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
       return;
     }
     onChange("district", "");
-    onChange("ward", "");
-    onChange("street_id", "");
     getDistricts().then((res: any) => {
       const filtered = (res.data || []).filter(
         (d: any) => String(d.region) === String(form.region)
@@ -102,35 +96,6 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
       setDistricts(filtered);
     });
   }, [form.region]);
-
-  useEffect(() => {
-    if (!form.district) {
-      setWards([]);
-      return;
-    }
-    onChange("ward", "");
-    onChange("street_id", "");
-    getWards().then((res: any) => {
-      const filtered = (res.data || []).filter(
-        (w: any) => String(w.district) === String(form.district)
-      );
-      setWards(filtered);
-    });
-  }, [form.district]);
-
-  useEffect(() => {
-    if (!form.ward) {
-      setStreets([]);
-      return;
-    }
-    onChange("street_id", "");
-    getStreets().then((res: any) => {
-      const filtered = (res.data || []).filter(
-        (s: any) => String(s.ward) === String(form.ward)
-      );
-      setStreets(filtered);
-    });
-  }, [form.ward]);
 
   // Handle phone change with validation
   const handlePhoneChange = (value: string) => {
@@ -215,10 +180,10 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
           onChange={(e) => onChange('customer_email', e.target.value)}
         />
 
-        {/* Location dropdowns (unchanged) */}
+        {/* Location dropdowns - both optional */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="text-sm text-gray-600">Region</label>
+            <label className="text-sm text-gray-600">Region (Optional)</label>
             <select
               value={form.region}
               onChange={(e) => onChange('region', String(e.target.value))}
@@ -231,7 +196,7 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             </select>
           </div>
           <div>
-            <label className="text-sm text-gray-600">District</label>
+            <label className="text-sm text-gray-600">District (Optional)</label>
             <select
               value={form.district}
               onChange={(e) => onChange('district', String(e.target.value))}
@@ -241,40 +206,6 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
               <option value="">Select District</option>
               {districts.map((d) => (
                 <option key={d.id} value={String(d.id)}>{d.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="text-sm text-gray-600">Ward</label>
-            <select
-              value={form.ward}
-              onChange={(e) => onChange('ward', String(e.target.value))}
-              className="w-full border-b border-gray-300 bg-transparent py-2 outline-none focus:border-brand-primary transition-colors"
-              disabled={!form.district}
-            >
-              <option value="">Select Ward</option>
-              {wards.map((w) => (
-                <option key={w.id} value={String(w.id)}>{w.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm text-gray-600">
-              Street <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={form.street_id}
-              onChange={(e) => onChange('street_id', String(e.target.value))}
-              className="w-full border-b border-gray-300 bg-transparent py-2 outline-none focus:border-brand-primary transition-colors"
-              disabled={!form.ward}
-              required
-            >
-              <option value="">Select Street</option>
-              {streets.map((s) => (
-                <option key={s.id} value={String(s.id)}>{s.name}</option>
               ))}
             </select>
           </div>

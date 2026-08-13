@@ -34,7 +34,6 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
   const locationParts = [
     citizenData?.RESIDENTREGION,
     citizenData?.RESIDENTDISTRICT,
-    citizenData?.RESIDENTWARD,
   ].filter(Boolean);
   const locationString = locationParts.join(" / ") || "—";
 
@@ -60,12 +59,12 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
             <p className="font-medium">{getGenderText(form.customer_gender || "")}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Street ID</p>
-            <p className="font-medium">{form.street_id || "—"}</p>
+            <p className="text-sm text-gray-500">Region</p>
+            <p className="font-medium">{citizenData?.RESIDENTREGION || "—"}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Location</p>
-            <p className="font-medium">{locationString}</p>
+            <p className="text-sm text-gray-500">District</p>
+            <p className="font-medium">{citizenData?.RESIDENTDISTRICT || "—"}</p>
           </div>
           <div className="md:col-span-2">
             <p className="text-sm text-gray-500">Issue Title</p>

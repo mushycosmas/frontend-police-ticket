@@ -249,7 +249,8 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   // ======================
   const validateStep = (step: number): boolean => {
     if (step === 1) {
-      return Boolean(form.customer_phone.trim() && form.street_id.trim());
+      // Only require phone number, region and district are optional
+      return Boolean(form.customer_phone.trim());
     }
     if (step === 2) {
       return Boolean(form.channel.trim() && form.title.trim() && form.description.trim());
@@ -291,7 +292,7 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
       fd.append("customer_phone", form.customer_phone);
       fd.append("customer_email", form.customer_email);
       fd.append("channel", form.channel);
-      fd.append("street_id", form.street_id);
+      fd.append("street_id", form.street_id || ""); // Send empty string if not provided
       fd.append("title", form.title);
       fd.append("description", form.description);
       fd.append("customer_nida", form.customer_nida || nida);
@@ -444,8 +445,12 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
                           <p className="font-medium">{getGenderText(form.customer_gender || "")}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Street ID</p>
-                          <p className="font-medium">{form.street_id || "—"}</p>
+                          <p className="text-sm text-gray-500">Region</p>
+                          <p className="font-medium">{citizenData?.RESIDENTREGION || form.region || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">District</p>
+                          <p className="font-medium">{citizenData?.RESIDENTDISTRICT || form.district || "—"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Channel</p>
