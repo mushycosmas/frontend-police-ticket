@@ -183,7 +183,7 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
         {/* Location dropdowns - both optional */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="text-sm text-gray-600">Region (Optional)</label>
+            <label className="text-sm text-gray-600">Region </label>
             <select
               value={form.region}
               onChange={(e) => onChange('region', String(e.target.value))}
@@ -196,7 +196,7 @@ export const ReporterInfoStep: React.FC<ReporterInfoStepProps> = ({
             </select>
           </div>
           <div>
-            <label className="text-sm text-gray-600">District (Optional)</label>
+            <label className="text-sm text-gray-600">District </label>
             <select
               value={form.district}
               onChange={(e) => onChange('district', String(e.target.value))}
