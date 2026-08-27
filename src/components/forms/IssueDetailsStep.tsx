@@ -68,7 +68,7 @@ export const IssueDetailsStep: React.FC<IssueDetailsStepProps> = ({
         {/* Description */}
         <div className="space-y-1">
           <label className="block text-sm font-semibold text-gray-700">
-            Description <span className="text-gray-400 text-xs font-normal ml-1">(Optional)</span>
+            Description <span className="text-red-500">*</span>
           </label>
           <textarea
             value={description}
