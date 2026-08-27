@@ -5,6 +5,7 @@ import { createTicket } from "../../api/ticketApi";
 import { verifyNida } from "../../api/nida/nidaApi";
 import { getChannels } from "../../api/channelApi";
 import { getIssueTemplates } from "../../api/issueTemplateApi";
+import { getRegions, getDistricts } from "../../api/locationApi";
 
 import { ProgressIndicator } from "../common/ProgressIndicator";
 import { ErrorMessage } from "../common/ErrorMessage";
@@ -61,6 +62,11 @@ interface Template {
   description: string;
 }
 
+interface Option {
+  id: number;
+  name: string;
+}
+
 const getGenderText = (genderCode: string) => {
   switch (genderCode) {
     case "M": return "Male";
@@ -111,6 +117,30 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Regions & Districts state for name lookup
+  const [regions, setRegions] = useState<Option[]>([]);
+  const [districts, setDistricts] = useState<Option[]>([]);
+
+  // ======================
+  // FETCH REGIONS & DISTRICTS
+  // ======================
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const regionRes = await getRegions();
+        const regionData = regionRes?.data?.data || regionRes?.data || regionRes || [];
+        setRegions(regionData);
+
+        const districtRes = await getDistricts();
+        const districtData = districtRes?.data?.data || districtRes?.data || districtRes || [];
+        setDistricts(districtData);
+      } catch (err) {
+        console.error("Error fetching locations:", err);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   // ======================
   // NIDA VERIFICATION
@@ -218,6 +248,27 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   }, [nidaValid]);
 
   // ======================
+  // HELPER FUNCTIONS - GET NAMES FROM IDs
+  // ======================
+  const getRegionName = (id: string) => {
+    if (!id) return "—";
+    const region = regions.find(r => String(r.id) === String(id));
+    return region ? region.name : id;
+  };
+
+  const getDistrictName = (id: string) => {
+    if (!id) return "—";
+    const district = districts.find(d => String(d.id) === String(id));
+    return district ? district.name : id;
+  };
+
+  const getChannelName = (id: string) => {
+    if (!id) return "—";
+    const channel = channels.find(c => String(c.id) === String(id));
+    return channel ? channel.name : id;
+  };
+
+  // ======================
   // FORM UPDATE (phone only digits)
   // ======================
   const updateFormField = (field: string, value: string) => {
@@ -292,7 +343,7 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
       fd.append("customer_phone", form.customer_phone);
       fd.append("customer_email", form.customer_email);
       fd.append("channel", form.channel);
-      fd.append("street_id", form.street_id || ""); // Send empty string if not provided
+      fd.append("street_id", form.street_id || "");
       fd.append("title", form.title);
       fd.append("description", form.description);
       fd.append("customer_nida", form.customer_nida || nida);
@@ -366,6 +417,11 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
   // Filter channels to only public (case‑insensitive)
   const publicChannels = channels.filter((ch) => ch.status?.toLowerCase() === "public");
 
+  // Get region and district names for display in review
+  const regionDisplayName = getRegionName(form.region) || citizenData?.RESIDENTREGION || "—";
+  const districtDisplayName = getDistrictName(form.district) || citizenData?.RESIDENTDISTRICT || "—";
+  const channelDisplayName = getChannelName(form.channel);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -374,7 +430,7 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-bold text-blue-600">Report Ticket</h2>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
         </div>
 
         {/* Body */}
@@ -446,15 +502,15 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Region</p>
-                          <p className="font-medium">{citizenData?.RESIDENTREGION || form.region || "—"}</p>
+                          <p className="font-medium text-blue-700 font-semibold">{regionDisplayName}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">District</p>
-                          <p className="font-medium">{citizenData?.RESIDENTDISTRICT || form.district || "—"}</p>
+                          <p className="font-medium text-blue-700 font-semibold">{districtDisplayName}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Channel</p>
-                          <p className="font-medium">{form.channel || "—"}</p>
+                          <p className="font-medium text-blue-700 font-semibold">{channelDisplayName}</p>
                         </div>
                         <div className="md:col-span-2">
                           <p className="text-sm text-gray-500">Issue Title</p>
@@ -498,51 +554,51 @@ export const ReportTicketModal: React.FC<ReportTicketModalProps> = ({ onClose })
       </div>
 
       {/* Enhanced Success Modal with Ticket Search */}
-     {success && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-    <div className="bg-white p-6 rounded-xl text-center animate-fade-in-up max-w-md w-full mx-4">
-      {/* Success icon */}
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-      <h2 className="text-green-600 text-xl font-bold">Ticket Created 🎉</h2>
-      <p className="mt-2">Your ticket number:</p>
-      <div className="text-2xl font-bold text-blue-600 break-all">{createdTicketNumber}</div>
-      <button onClick={handleCopyTicketNumber} className="mt-2 text-blue-600 underline text-sm">
-        Copy number
-      </button>
+      {success && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+          <div className="bg-white p-6 rounded-xl text-center animate-fade-in-up max-w-md w-full mx-4">
+            {/* Success icon */}
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-green-600 text-xl font-bold">Ticket Created 🎉</h2>
+            <p className="mt-2">Your ticket number:</p>
+            <div className="text-2xl font-bold text-blue-600 break-all">{createdTicketNumber}</div>
+            <button onClick={handleCopyTicketNumber} className="mt-2 text-blue-600 underline text-sm">
+              Copy number
+            </button>
 
-      {/* Divider */}
-      <div className="my-6 border-t border-gray-200"></div>
+            {/* Divider */}
+            <div className="my-6 border-t border-gray-200"></div>
 
-      {/* Informational message about tracking */}
-      <p className="text-sm text-gray-700 mb-2">You can check the status of your ticket anytime using:</p>
-      <ul className="text-sm text-gray-600 space-y-1 mb-4">
-        <li>📞 Your registered phone number</li>
-        <li>🆔 Your NIDA number</li>
-        <li>🎫 Your ticket number (shown above)</li>
-      </ul>
-      <button
-        onClick={() => {
-          window.location.href = "/track";
-        }}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition text-sm font-medium"
-      >
-        Track My Ticket
-      </button>
+            {/* Informational message about tracking */}
+            <p className="text-sm text-gray-700 mb-2">You can check the status of your ticket anytime using:</p>
+            <ul className="text-sm text-gray-600 space-y-1 mb-4">
+              <li>📞 Your registered phone number</li>
+              <li>🆔 Your NIDA number</li>
+              <li>🎫 Your ticket number (shown above)</li>
+            </ul>
+            <button
+              onClick={() => {
+                window.location.href = "/";
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition text-sm font-medium"
+            >
+              Track My Ticket
+            </button>
 
-      {/* Close button */}
-      <button
-        className="mt-3 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg w-full transition text-sm"
-        onClick={() => setSuccess(false)}
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
+            {/* Close button */}
+            <button
+              className="mt-3 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg w-full transition text-sm"
+              onClick={() => setSuccess(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
